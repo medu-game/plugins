@@ -1,0 +1,8 @@
+{
+  "name": "fk-po",
+  "version": "1.2.0",
+  "description": "FlowKeeper product-owner tooling for Cowork. Ships four complementary skills. Three cover the explore → brainstorm → ticket flow: fk-po-explore (read-only product-language explanation of existing features), fk-po-brainstorm (pre-ticket grilling loop for fuzzy ideas), and fk-po-ticket (full spec + Jira ticket creation with screenshot attachments). The fourth, fk-po-release-notes (fk-release-notes), drafts EN+NL release-note items from shipped Jira tickets for the PO to review and publish manually. The ticket and brainstorm flows are docs-aware: they grow FlowKeeper's product glossary (CONTEXT.md) and decision log (docs/adr/) inline so the team's shared language compounds over time.",
+  "author": {
+    "name": "FlowKeeper"
+  }
+}

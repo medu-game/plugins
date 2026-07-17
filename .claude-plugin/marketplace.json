@@ -1,0 +1,14 @@
+{
+  "name": "flowkeeper",
+  "owner": {
+    "name": "FlowKeeper"
+  },
+  "description": "FlowKeeper plugins for Claude Cowork and Claude Code.",
+  "plugins": [
+    {
+      "name": "fk-po",
+      "source": "./cowork-plugins/fk-po",
+      "description": "Product-owner tooling — four skills. The explore → brainstorm → ticket flow: fk-po-explore (read-only feature explainer in product language), fk-po-brainstorm (pre-ticket grilling loop for fuzzy ideas), and fk-po-ticket (full grilled Jira ticket with screenshot attachments). Plus fk-release-notes: drafts EN+NL release-note items from shipped Jira tickets for the PO to review and publish manually. The ticket and brainstorm flows grow CONTEXT.md and docs/adr/ in both repos inline."
+    }
+  ]
+}
