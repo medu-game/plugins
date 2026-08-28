@@ -1,6 +1,12 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { buildHelpProps } from './storyboard.mjs';
+import { readFileSync } from 'node:fs';
+import {
+  AUTHORED_BEAT_FIELDS,
+  GENERATED_BEAT_FIELDS,
+  buildHelpProps,
+  validateStoryboard,
+} from './storyboard.mjs';
 
 // Shaped after a real events.jsonl from the taak-aanmaken recording: a login
 // step first, then the beats. The login is what the rebasing has to remove,
@@ -77,4 +83,93 @@ test('a recording with no beat at all does not divide by a missing offset', () =
   assert.equal(props.captureStartSec, 0);
   assert.equal(props.captureDurationSec, 5);
   assert.deepEqual(props.beats, []);
+});
+
+// ---- validateStoryboard -----------------------------------------------------
+// Every rule here exists because the pipeline swallowed the mistake once. The
+// validator runs without a browser, so it is the cheapest gate in the chain.
+
+const screen = (over = {}) => ({ id: 's1', narration: 'Een zin.', ...over });
+const card = (over = {}) => ({ id: 'c1', kind: 'card', cardTitle: 'Kop', ...over });
+const sbMeta = (over = {}) => ({ slug: 'x', title: 'Titel', subtitle: 'Een zin.', ...over });
+
+const errorsFor = (beats, m = sbMeta()) => validateStoryboard(beats, m).errors.join(' | ');
+
+test('a well-formed storyboard passes', () => {
+  const result = validateStoryboard([card(), screen()], sbMeta());
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+});
+
+test('a beat without an id is rejected', () => {
+  assert.match(errorsFor([screen({ id: undefined })]), /id/i);
+});
+
+test('duplicate ids are rejected because buildHelpProps keys on them', () => {
+  assert.match(errorsFor([screen(), screen()]), /duplicate/i);
+});
+
+test('a screen beat without narration is rejected', () => {
+  assert.match(errorsFor([screen({ narration: undefined })]), /narration/i);
+});
+
+test('a card with narration is rejected: cards are silent and uncaptioned', () => {
+  assert.match(errorsFor([card({ narration: 'Niemand hoort dit.' })]), /card/i);
+});
+
+test('a card without a title is rejected', () => {
+  assert.match(errorsFor([card({ cardTitle: undefined })]), /cardTitle/i);
+});
+
+test('preRollSec without an action is rejected: runStoryboard ignores it', () => {
+  assert.match(errorsFor([screen({ preRollSec: 2 })]), /preRollSec/i);
+});
+
+test('preRollSec with an action is fine', () => {
+  assert.equal(validateStoryboard([screen({ preRollSec: 2, action: () => {} })], sbMeta()).ok, true);
+});
+
+for (const field of ['narration', 'speech']) {
+  test(`an em dash in ${field} is rejected (FE-COPY-1)`, () => {
+    assert.match(errorsFor([screen({ [field]: 'Een zin — met een streepje.' })]), /em dash/i);
+  });
+}
+
+for (const field of ['cardTitle', 'cardSubtitle', 'cardEyebrow']) {
+  test(`an em dash in ${field} is rejected (FE-COPY-1)`, () => {
+    assert.match(errorsFor([card({ [field]: 'Kop — met streepje' })]), /em dash/i);
+  });
+}
+
+test('an em dash in meta.title or meta.subtitle is rejected: the intro shows both', () => {
+  assert.match(errorsFor([screen()], sbMeta({ title: 'A — B' })), /em dash/i);
+  assert.match(errorsFor([screen()], sbMeta({ subtitle: 'A — B' })), /em dash/i);
+});
+
+test('meta must carry slug, title and subtitle', () => {
+  for (const key of ['slug', 'title', 'subtitle']) {
+    assert.match(errorsFor([screen()], sbMeta({ [key]: undefined })), new RegExp(key, 'i'));
+  }
+});
+
+test('a beat field the pipeline does not read is rejected', () => {
+  // The recurring failure: cardDesign was copied by nobody, so setting it
+  // changed nothing and looked like a decision. A field nothing reads is worse
+  // than a missing one.
+  assert.match(errorsFor([screen({ cardColour: 'green' })]), /cardColour/i);
+});
+
+test('the known-field list has not drifted from what the code reads', () => {
+  // Derived from the source rather than typed, because a hand-kept list is the
+  // same bug in a new place. Every field the pipeline reads off a beat must be
+  // classified as authored or generated.
+  const src = ['storyboard.mjs', 'narrate.mjs']
+    .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
+    .join('\n');
+  const read = new Set(
+    [...src.matchAll(/\b(?:beat|b)\.([a-zA-Z]+)/g)].map((m) => m[1]),
+  );
+  const classified = new Set([...AUTHORED_BEAT_FIELDS, ...GENERATED_BEAT_FIELDS]);
+  const unclassified = [...read].filter((f) => !classified.has(f));
+  assert.deepEqual(unclassified, [], `unclassified beat fields: ${unclassified.join(', ')}`);
 });

@@ -12,7 +12,8 @@
     "record": "node record-repro.mjs play-storyboard.mjs",
     "render": "node render-help.mjs",
     "stage": "node stage-only.mjs",
-    "studio": "./studio.sh"
+    "studio": "./studio.sh",
+    "probe": "node record-repro.mjs probe-storyboard.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
