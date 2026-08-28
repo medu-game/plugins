@@ -226,7 +226,7 @@ The Atlassian MCP tools currently do not expose an attachment upload, so attachi
 If you collected one or more uploaded file paths in Phase 4:
 
 1. Confirm with the PO before uploading: "Ik heb [N] screenshot(s) in de chat gezien — zal ik ze als bijlage aan het ticket hangen?" Wait for a yes.
-2. The helper lives at `scripts/attach-to-jira.sh` next to this SKILL.md file. Resolve its absolute path from the SKILL.md location you were loaded from — when installed via the marketplace this typically lands under `~/.claude/plugins/cache/.../fk-po/skills/fk-po-ticket/scripts/attach-to-jira.sh`; when running from the dev workspace it's `cowork-plugins/fk-po/skills/fk-po-ticket/scripts/attach-to-jira.sh` under the user's FlowKeeper folder. Invoke it with the resolved absolute path:
+2. The helper lives at `scripts/attach-to-jira.sh` next to this SKILL.md file. Resolve its absolute path from the SKILL.md location you were loaded from — when installed via the marketplace it lands under `~/.claude/plugins/cache/<marketplace>/fk-po/<version>/skills/fk-po-ticket/scripts/attach-to-jira.sh`, where `<version>` is a git commit sha and changes on every marketplace update, so resolve it rather than remembering it; when running from the dev workspace it's `cowork-plugins/fk-po/skills/fk-po-ticket/scripts/attach-to-jira.sh` under the user's FlowKeeper folder. Invoke it with the resolved absolute path:
 
    ```sh
    bash <absolute-path-to-script> FK-512 \

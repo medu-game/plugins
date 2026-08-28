@@ -1,0 +1,35 @@
+{
+  "name": "flowkeeper-repro-harness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PO bug-repro video harness: Playwright capture + Remotion annotated render. Runs in Claude Cowork against the acceptance environment.",
+  "type": "module",
+  "scripts": {
+    "setup": "npm ci && playwright install chromium",
+    "test": "node --test",
+    "spike": "node spike-check.mjs",
+    "narrate": "node narrate.mjs",
+    "record": "node record-repro.mjs play-storyboard.mjs",
+    "render": "node render-help.mjs",
+    "stage": "node stage-only.mjs",
+    "studio": "./studio.sh"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@remotion/cli": "4.0.508",
+    "@remotion/google-fonts": "^4.0.508",
+    "@remotion/renderer": "4.0.508",
+    "playwright": "^1.59.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.508"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "@ffmpeg-installer/linux-arm64@4.1.4": true
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7"
+  }
+}

@@ -8,7 +8,7 @@
     {
       "name": "fk-po",
       "source": "./cowork-plugins/fk-po",
-      "description": "Product-owner tooling — four skills. The explore → brainstorm → ticket flow: fk-po-explore (read-only feature explainer in product language), fk-po-brainstorm (pre-ticket grilling loop for fuzzy ideas), and fk-po-ticket (full grilled Jira ticket with screenshot attachments). Plus fk-release-notes: drafts EN+NL release-note items from shipped Jira tickets for the PO to review and publish manually. The ticket and brainstorm flows grow CONTEXT.md and docs/adr/ in both repos inline."
+      "description": "Product-owner tooling — six skills. The explore → brainstorm → ticket flow: fk-po-explore (read-only feature explainer in product language), fk-po-brainstorm (pre-ticket grilling loop for fuzzy ideas), and fk-po-ticket (full grilled Jira ticket with screenshot attachments). Plus fk-po-bug-video: reproduces a bug on acceptance in a recorded browser and files an annotated Jira Bug. Plus fk-release-notes: drafts EN+NL release-note items from shipped Jira tickets for the PO to review and publish manually. The ticket and brainstorm flows grow CONTEXT.md and docs/adr/ in both repos inline. Plus fk-po-help-video (WORK IN PROGRESS): records a Dutch help-centre video with voice-over, subtitles and chapter cards from an existing storyboard, and hands the PO an MP4 plus subtitle file to review; it publishes nothing and files no ticket."
     }
   ]
 }
