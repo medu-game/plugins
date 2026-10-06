@@ -25,12 +25,10 @@
 //   4  remotion render failed
 
 import {
-  copyFileSync,
   existsSync,
   globSync,
   mkdirSync,
   readFileSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -40,6 +38,9 @@ import { fileURLToPath } from 'node:url';
 import { parseEvents } from './events.mjs';
 import { buildHelpProps, loadBeats, loadFocus } from './storyboard.mjs';
 import { buildVtt } from './captions.mjs';
+import { renderWithBrowserFallback } from './render-browser.mjs';
+import { assertInstallMatchesPlatform } from './preflight.mjs';
+import { loadCapture, stagePublicDir } from './stage.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -68,13 +69,14 @@ if (args.help || !args.workDir) {
   process.exit(args.help ? 0 : 1);
 }
 
+assertInstallMatchesPlatform('render-help');
+
 const workDir = resolve(args.workDir);
-const captureJson = join(workDir, 'capture.json');
-if (!existsSync(captureJson)) {
+const capture = loadCapture(workDir);
+if (!capture) {
   console.error(`[render-help] no capture.json in ${workDir}; run record-repro.mjs first`);
   process.exit(1);
 }
-const capture = JSON.parse(readFileSync(captureJson, 'utf8'));
 if (!existsSync(capture.rawMp4)) {
   console.error(`[render-help] capture video missing: ${capture.rawMp4}`);
   process.exit(1);
@@ -97,6 +99,7 @@ if (!title) {
 
 const events = parseEvents(readFileSync(capture.eventsFile, 'utf8'));
 const props = buildHelpProps(events, narration, loadFocus(workDir), { title, subtitle });
+props.page = capture.viewport;
 
 if (props.beats.length === 0) {
   console.error('[render-help] no beat reached the recording; nothing to narrate');
@@ -119,30 +122,14 @@ if (props.beats.length > narration.beats.length) {
 const propsPath = join(workDir, 'help-props.json');
 writeFileSync(propsPath, JSON.stringify(props, null, 2), 'utf8');
 
-// Stage everything staticFile() will ask for. The audio dir is wiped first so
-// a re-render never picks up a beat from a previous run.
 const publicDir = join(here, 'remotion', 'public');
-const publicAudio = join(publicDir, 'audio');
-rmSync(publicAudio, { recursive: true, force: true });
-mkdirSync(publicAudio, { recursive: true });
-copyFileSync(capture.rawMp4, join(publicDir, 'capture.mp4'));
-// The intro clip, the cut-out lockup taken from it, and the intro music are
-// committed assets, not per-run artifacts. Anything TWEAKS can name has to be
-// staged here, because staticFile() only reads from the public dir.
-for (const asset of ['intro-dark.mp4', 'intro-light.mp4', 'intro-lockup-light.png',
-  'outro-light.mp4', 'intro-music.mp3', 'sfx-ping.mp3', 'logo-lockup.png',
-  'logo-lockup-small.png']) {
-  const from = join(here, 'assets', asset);
-  if (existsSync(from)) copyFileSync(from, join(publicDir, asset));
-}
-// A card has no voice and therefore no file. Filtering here rather than
-// guarding inside the loop, so the reason is visible: silence is the absence of
-// an asset, not an asset that happens to be quiet.
-for (const beat of props.beats.filter((b) => b.audio)) {
-  copyFileSync(join(workDir, beat.audio), join(publicDir, beat.audio));
-}
-// Cues are committed assets, not per-run ones, and TWEAKS names them, so a
-// rename there has to be mirrored in the asset list above.
+stagePublicDir({
+  props,
+  rawMp4: capture.rawMp4,
+  workDir,
+  assetsDir: join(here, 'assets'),
+  publicDir,
+});
 
 function defaultOutDir() {
   const candidates = [
@@ -169,28 +156,24 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-').replace(/T/, '_').s
 const mp4Path = join(outDir, `help-${slug}-${stamp}.mp4`);
 const vttPath = mp4Path.replace(/\.mp4$/, '.vtt');
 
-const { chromium } = await import('playwright');
-const browserExecutable = chromium.executablePath();
-
 console.log(`[render-help] props   : ${propsPath}`);
 console.log(`[render-help] beats   : ${props.beats.length} (${narration.mode})`);
-console.log(`[render-help] browser : ${browserExecutable}`);
 
-const render = spawnSync(
-  'npx',
-  [
+const render = await renderWithBrowserFallback({
+  args: [
     'remotion',
     'render',
     'remotion/index.ts',
     'HelpVideo',
     mp4Path,
     `--props=${propsPath}`,
-    `--browser-executable=${browserExecutable}`,
     `--public-dir=${publicDir}`,
     '--concurrency=2',
   ],
-  { cwd: here, stdio: ['ignore', 'inherit', 'pipe'] },
-);
+  spawnOptions: { cwd: here, stdio: ['ignore', 'inherit', 'pipe'] },
+  log: (msg) => console.log(`[render-help] ${msg}`),
+  spawnSync,
+});
 if (render.status !== 0) {
   console.error('[render-help] remotion render failed:');
   console.error((render.stderr?.toString() ?? '').split('\n').slice(-20).join('\n'));
@@ -199,6 +182,13 @@ if (render.status !== 0) {
 
 const vtt = buildVtt(props.beats);
 writeFileSync(vttPath, vtt, 'utf8');
+// ElevenLabs history does not say which voice read a take, so "which voice did
+// the last video use?" is only answerable from this file.
+writeFileSync(
+  mp4Path.replace(/\.mp4$/, '.json'),
+  JSON.stringify({ voice: narration.voice ?? null, workDir }, null, 2),
+  'utf8',
+);
 const cueCount = (vtt.match(/ --> /g) ?? []).length;
 
 function sizeKb(p) {

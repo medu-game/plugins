@@ -1,12 +1,16 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   AUTHORED_BEAT_FIELDS,
   GENERATED_BEAT_FIELDS,
   buildHelpProps,
+  dryRunStoryboard,
   validateStoryboard,
 } from './storyboard.mjs';
+import { CARD_DESIGNS } from './remotion/card-designs.mjs';
 
 // Shaped after a real events.jsonl from the taak-aanmaken recording: a login
 // step first, then the beats. The login is what the rebasing has to remove,
@@ -121,6 +125,18 @@ test('a card without a title is rejected', () => {
   assert.match(errorsFor([card({ cardTitle: undefined })]), /cardTitle/i);
 });
 
+test('an unknown card design is rejected instead of falling back to flows', () => {
+  assert.match(errorsFor([card({ cardDesign: 'balk' })]), /cardDesign "balk"/);
+  assert.equal(validateStoryboard([card({ cardDesign: 'stappen' }), screen()], sbMeta()).ok, true);
+});
+
+test('every design the validator accepts is one the composition renders', () => {
+  const cards = readFileSync(new URL('./remotion/Cards.tsx', import.meta.url), 'utf8');
+  const union = cards.match(/export type CardDesign = ([^;]+);/)[1];
+  const rendered = [...union.matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+  assert.deepEqual([...rendered].sort(), [...CARD_DESIGNS].sort());
+});
+
 test('preRollSec without an action is rejected: runStoryboard ignores it', () => {
   assert.match(errorsFor([screen({ preRollSec: 2 })]), /preRollSec/i);
 });
@@ -172,4 +188,62 @@ test('the known-field list has not drifted from what the code reads', () => {
   const classified = new Set([...AUTHORED_BEAT_FIELDS, ...GENERATED_BEAT_FIELDS]);
   const unclassified = [...read].filter((f) => !classified.has(f));
   assert.deepEqual(unclassified, [], `unclassified beat fields: ${unclassified.join(', ')}`);
+});
+
+// The probe is only a gate if it walks the storyboard the way the recording
+// does. A card parks a slow state change (verlof-aanvragen advances the wizard
+// behind one), and skipping its action left every later beat a step behind,
+// reported as unresolved selectors. So this asserts the action RAN, not that
+// the walk was quiet.
+test('a card beat runs its action in the dry run, like the recording does', async (t) => {
+  const workDir = mkdtempSync(join(tmpdir(), 'probe-'));
+  t.after(() => rmSync(workDir, { recursive: true, force: true }));
+
+  const ran = [];
+  const page = {
+    locator: () => ({ first: () => ({ boundingBox: async () => ({ x: 1, y: 2, width: 3, height: 4 }) }) }),
+    waitForTimeout: async () => {},
+    screenshot: async () => {},
+  };
+  const run = { step: () => {} };
+
+  const report = await dryRunStoryboard({
+    page,
+    run,
+    workDir,
+    meta: { slug: 'kaart-actie' },
+    beats: [
+      { id: 'kaart', kind: 'card', cardTitle: 'Titel', action: async () => { ran.push('kaart'); } },
+      { id: 'daarna', narration: 'Zin.', focus: 'x', action: async () => { ran.push('daarna'); } },
+    ],
+  });
+
+  assert.deepEqual(ran, ['kaart', 'daarna']);
+  assert.equal(report.ok, true);
+  assert.equal(report.beats.find((b) => b.id === 'kaart').actionRan, true);
+});
+
+test('a card whose action throws fails the probe instead of passing silently', async (t) => {
+  const workDir = mkdtempSync(join(tmpdir(), 'probe-'));
+  t.after(() => rmSync(workDir, { recursive: true, force: true }));
+
+  const page = {
+    locator: () => ({ first: () => ({ boundingBox: async () => null }) }),
+    waitForTimeout: async () => {},
+    screenshot: async () => {},
+  };
+
+  const report = await dryRunStoryboard({
+    page,
+    run: { step: () => {} },
+    workDir,
+    meta: { slug: 'kaart-stuk' },
+    beats: [
+      { id: 'kaart', kind: 'card', cardTitle: 'Titel', action: async () => { throw new Error('Volgende not found'); } },
+    ],
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.failures[0].id, 'kaart');
+  assert.match(report.failures[0].reason, /Volgende not found/);
 });

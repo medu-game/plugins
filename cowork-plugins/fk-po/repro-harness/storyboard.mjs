@@ -10,6 +10,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { CARD_DESIGNS } from './remotion/card-designs.mjs';
 
 const FOCUS_FILE = 'focus.json';
 const PROBE_DIR = 'probe';
@@ -99,6 +100,9 @@ export function validateStoryboard(beats, meta) {
 
     if (beat?.kind === 'card') {
       if (!beat.cardTitle) errors.push(`${at}: a card needs cardTitle`);
+      if (beat.cardDesign && !CARD_DESIGNS.includes(beat.cardDesign)) {
+        errors.push(`${at}: cardDesign "${beat.cardDesign}" is not one of ${CARD_DESIGNS.join(', ')}`);
+      }
       // Cards have no voice and no subtitle, so a narration on one is a line
       // nobody hears or reads.
       if (beat.narration || beat.speech) {
@@ -205,9 +209,25 @@ export async function dryRunStoryboard({ page, run, beats, meta, workDir, dwellM
   const report = { slug: meta?.slug ?? null, ok: true, beats: [], failures: [] };
 
   for (const beat of beats) {
-    // A card has no UI, so there is nothing to walk or screenshot.
+    // A card has no UI to walk or screenshot, but runStoryboard runs its action
+    // like any other beat, and a card is exactly where a slow state change gets
+    // parked (see the replacements card in verlof-aanvragen). Skipping the action
+    // here left the wizard a step behind for every beat after it, and the probe
+    // reported those as unresolved selectors: a real failure pointing at the
+    // wrong thing. Same beat semantics as the recording, or the gate is a lie.
     if (beat.kind === 'card') {
-      report.beats.push({ id: beat.id, kind: 'card' });
+      const entry = { id: beat.id, kind: 'card', actionRan: false };
+      if (beat.action) {
+        try {
+          await beat.action({ page, run });
+          entry.actionRan = true;
+        } catch (error) {
+          entry.error = error.message;
+          report.failures.push({ id: beat.id, selector: null, reason: error.message });
+          report.ok = false;
+        }
+      }
+      report.beats.push(entry);
       continue;
     }
 
@@ -230,6 +250,7 @@ export async function dryRunStoryboard({ page, run, beats, meta, workDir, dwellM
     try {
       // Same ordering rule as runStoryboard: a beat whose action removes its own
       // focus target has to be measured first, which is what preRollSec means.
+      const actionStarted = Date.now();
       if (beat.preRollSec && beat.action) {
         await resolveFocus();
         await beat.action({ page, run });
@@ -240,6 +261,12 @@ export async function dryRunStoryboard({ page, run, beats, meta, workDir, dwellM
         await resolveFocus();
       }
       entry.actionRan = Boolean(beat.action);
+      // What the recording will spend on this beat before the voice can be the
+      // only thing setting its length. The probe skips the pre-roll wait, the
+      // recording does not.
+      if (beat.action) {
+        entry.actionSec = Number(((Date.now() - actionStarted) / 1000 + (beat.preRollSec ?? 0)).toFixed(1));
+      }
     } catch (error) {
       entry.error = error.message;
       report.failures.push({

@@ -13,13 +13,19 @@
 //
 //   node make-intro-music.mjs [--out assets/intro-music.mp3]
 //                             [--length-ms N] [--source-ms N] [--recut]
+//   node make-intro-music.mjs --outro
+//
+// --outro writes assets/outro-music.mp3 from the kept source and touches
+// nothing else: the same piece's arrival chord, landing on the first frame of
+// the outro and fading out with the logo, so the video closes on the music it
+// opened with.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveApiKey } from './narrate.mjs';
-import { INTRO_MUSIC_SEC } from './remotion/timing.mjs';
+import { INTRO_MUSIC_SEC, OUTRO_SEC } from './remotion/timing.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ENDPOINT = 'https://api.elevenlabs.io/v1/music';
@@ -77,6 +83,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--length-ms') out.lengthMs = Number(argv[++i]);
     else if (argv[i] === '--source-ms') out.sourceMs = Number(argv[++i]);
     else if (argv[i] === '--recut') out.recut = true;
+    else if (argv[i] === '--outro') out.outro = true;
   }
   return out;
 }
@@ -110,7 +117,7 @@ console.log(`[music] target : ${targetSec}s (INTRO_MUSIC_SEC ${INTRO_MUSIC_SEC}s
 
 const raw = args.outPath.replace(/\.mp3$/, '.source.mp3');
 
-if (args.recut) {
+if (args.recut || args.outro) {
   if (!existsSync(raw)) {
     console.error(`[music] --recut needs ${raw}, which does not exist`);
     process.exit(1);
@@ -154,6 +161,25 @@ if (heard.length === 0) {
 }
 const peak = heard.reduce((a, b) => (b.db > a.db ? b : a));
 console.log(`[music] peak   : ${peak.at}s at ${peak.db} dB`);
+
+if (args.outro) {
+  const outroPath = join(here, 'assets', 'outro-music.mp3');
+  // A short fade-in only to avoid a click; the chord itself is the entrance.
+  const outroStart = Math.min(Math.max(peak.at - 0.2, 0), Math.max(rawSec - OUTRO_SEC, 0));
+  const outroFades = [
+    'afade=t=in:st=0:d=0.08',
+    `afade=t=out:st=${(OUTRO_SEC * 0.35).toFixed(2)}:d=${(OUTRO_SEC * 0.65).toFixed(2)}`,
+  ].join(',');
+  const outroCut = spawnSync(ffmpeg, ['-y', '-loglevel', 'error', '-ss', String(outroStart), '-t',
+    String(OUTRO_SEC), '-i', raw, '-af', outroFades,
+    '-c:a', 'libmp3lame', '-q:a', '2', outroPath]);
+  if (outroCut.status !== 0) {
+    console.error(`[music] outro cut failed: ${outroCut.stderr?.toString().slice(0, 300)}`);
+    process.exit(1);
+  }
+  console.log(`[music] outro  : ${outroStart.toFixed(2)}s to ${(outroStart + OUTRO_SEC).toFixed(2)}s -> ${outroPath}`);
+  process.exit(0);
+}
 if (peak.db < -35) {
   console.log('[music] WARNING: nothing here is loud enough to hear under the animation.');
   console.log('[music] Run this again.');

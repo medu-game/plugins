@@ -17,19 +17,17 @@
 // On-screen text is Dutch. No em dashes (FE-COPY-1).
 import React from 'react';
 import { Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
-import { loadFont as loadDisplay } from '@remotion/google-fonts/HankenGrotesk';
-import { loadFont as loadBody } from '@remotion/google-fonts/Inter';
+import { BODY, DISPLAY } from './fonts';
 import { BRAND } from './brand';
 import { TWEAKS } from './tweaks';
-
-const { fontFamily: DISPLAY } = loadDisplay();
-const { fontFamily: BODY } = loadBody();
+import { Balken, Stappen, Stromen } from './Bumpers';
 
 const CLAMP = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 
-/** Which of the three designs a card uses. The decoration is about a subject,
- *  so this is a content choice, not a colour choice. */
-export type CardDesign = 'flows' | 'clienten' | 'deadlines';
+/** Which design a card uses. The decoration is about a subject, so this is a
+ *  content choice, not a colour choice. The last three are the chapter bumpers
+ *  in Bumpers.tsx; remotion/card-designs.mjs lists the same names for Node. */
+export type CardDesign = 'flows' | 'clienten' | 'deadlines' | 'balken' | 'stappen' | 'stromen';
 
 /** Kept for storyboards written before designs were nameable. */
 export type CardVariant = 'light' | 'indigo';
@@ -41,6 +39,8 @@ export type CardContent = {
   title: string;
   subtitle: string | null;
   step: number | null;
+  /** How many chapters the video has; the stappen bumper draws one node each. */
+  total?: number | null;
 };
 
 /** A storyboard that only says light or indigo still gets a sensible design. */
@@ -77,6 +77,20 @@ const ease = (
   easing = Easing.out(Easing.poly(4)),
 ) => interpolate(t, [start, end], [from, to], { ...CLAMP, easing });
 
+/** Leaves on its own ground before the cut, like the bumpers: 0.65s ending
+ *  0.2s before the card does. */
+const exitStyle = (t: number, endSec: number, delay = 0): React.CSSProperties => {
+  const at = endSec - 0.85 + delay;
+  return {
+    opacity: fade(t, at, at + 0.45, 1, 0),
+    transform: `translateY(${ease(t, at, at + 0.5, 0, -12, Easing.in(Easing.quad))}px)`,
+  };
+};
+
+/** 0..1, repeating every periodSec, shifted per element so a row reads as a wave. */
+const wave = (t: number, periodSec: number, phase = 0) =>
+  (Math.sin(((t / periodSec - phase) * 2 * Math.PI)) + 1) / 2;
+
 /** Text that wipes in from the left instead of fading. */
 const Reveal: React.FC<{
   t: number;
@@ -98,21 +112,29 @@ const stepLabel = (step: number | null) => String(step ?? 1).padStart(2, '0');
  * journey between them, so each design that uses it names the end state it
  * wants and the field animates in there.
  */
-const Chevrons: React.FC<{ t: number; start: number; placement: 'near' | 'far' }> = ({
-  t,
-  start,
-  placement,
-}) => {
-  const travelled = placement === 'far';
-  const transform = travelled
-    ? 'translate(-60px, 220px) scale(1.32)'
+const Chevrons: React.FC<{
+  t: number;
+  start: number;
+  placement: 'near' | 'circles';
+  endSec: number;
+}> = ({ t, start, placement, endSec }) => {
+  // 'circles' is one row centred on clienten's rings at (1660, 540): the row's
+  // own centre (1680, 260) is the transform origin, so the translate lands it.
+  const onCircles = placement === 'circles';
+  const transform = onCircles
+    ? 'translate(-20px, 280px) scale(1.32)'
     : 'translate(0px, 0px) scale(1)';
+  const rows = onCircles ? [0] : [0, 1];
   return (
     <svg
       width={1920}
       height={1080}
       viewBox="0 0 1920 1080"
-      style={{ position: 'absolute', inset: 0, opacity: fade(t, start, start + 0.8) }}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        opacity: fade(t, start, start + 0.8) * fade(t, endSec - 0.85, endSec - 0.35, 1, 0),
+      }}
     >
       <g
         style={{ transformOrigin: '1680px 260px', transform }}
@@ -122,16 +144,23 @@ const Chevrons: React.FC<{ t: number; start: number; placement: 'near' | 'far' }
         strokeLinejoin="round"
         fill="none"
       >
-        {[0, 1].map((row) =>
+        {rows.map((row) =>
           [0, 1, 2].map((col) => {
             const bx = 1560 + col * 90;
             const by = 200 + row * 200;
             const at = start + 0.1 + col * 0.16 + row * 0.1;
+            // Once in, a pulse runs left to right through each row, so the
+            // arrows keep pointing forward instead of standing still.
+            const settled = fade(t, at + 0.35, at + 0.8);
+            const pulse = wave(t, 1.4, col * 0.22 + row * 0.11);
+            const base = (row === 1 ? 0.35 : 1) * (0.4 + col * 0.3);
+            const level = base * (1 - settled * 0.55) + settled * pulse * 0.55;
             return (
               <path
                 key={`${row}-${col}`}
                 d={`M${bx} ${by}L${bx + 60} ${by + 60}L${bx} ${by + 120}`}
-                opacity={fade(t, at, at + 0.35) * (row === 1 ? 0.35 : 1) * (0.4 + col * 0.3)}
+                opacity={fade(t, at, at + 0.35) * level}
+                style={{ transform: `translateX(${settled * (pulse - 0.5) * 10}px)` }}
               />
             );
           }),
@@ -142,14 +171,18 @@ const Chevrons: React.FC<{ t: number; start: number; placement: 'near' | 'far' }
 };
 
 /**
- * The lockup this design carries bottom left. It is the real one, cropped out of
- * Flowkeeper's own logo animation, not drawn here.
+ * The lockup this design carries bottom left. It is the shipped logo, taken from
+ * the app's own logo_text_right.svg, not drawn here.
  *
  * The source file draws it inline as an SVG and I ported that faithfully, which
  * was the wrong kind of faithful: its mark is an arrow pointing right where
  * Flowkeeper's is a chevron pointing left over three green bars. Tim spotted it
  * in the first render. Third time this pipeline has been bitten by rebuilding
  * that logo by hand, so this one is an image.
+ *
+ * It used to be cropped out of intro-light.mp4, whose mark disagrees with the
+ * shipped one: bars 1.6x too short, chevron 1.17x too big. That crop also keyed
+ * the chevron to alpha 0, so it only read as white by standing on a white card.
  */
 const InlineLockup: React.FC<{ t: number; start: number }> = ({ t, start }) => (
   <div style={{ position: 'absolute', left: 140, bottom: 120, ...enter(t, start, 14) }}>
@@ -170,9 +203,20 @@ const NODES: [number, number, number, string, string | null, number][] = [
   [1760, 640, 10, BRAND.paper, BRAND.gray300, 3.1],
 ];
 
-const CardFlows: React.FC<{ t: number; content: CardContent }> = ({ t, content }) => (
+const FLOW_DONE = 'M160 760H700C760 760 780 700 840 700H1180';
+
+const CardFlows: React.FC<{ t: number; content: CardContent; endSec: number }> = ({
+  t,
+  content,
+  endSec,
+}) => (
   <div style={{ position: 'absolute', inset: 0, background: BRAND.paper }}>
-    <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: 'absolute', inset: 0 }}>
+    <svg
+      width={1920}
+      height={1080}
+      viewBox="0 0 1920 1080"
+      style={{ position: 'absolute', inset: 0, ...exitStyle(t, endSec, 0.1) }}
+    >
       <g stroke={BRAND.cardBorder} strokeWidth={1}>
         <path d="M0 180H1920" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - draw(t, 0.15, 1.5)} />
         <path d="M0 900H1920" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - draw(t, 0.3, 1.7)} />
@@ -187,7 +231,7 @@ const CardFlows: React.FC<{ t: number; content: CardContent }> = ({ t, content }
         strokeDashoffset={1 - draw(t, 0.9, 2.4)}
       />
       <path
-        d="M160 760H700C760 760 780 700 840 700H1180"
+        d={FLOW_DONE}
         fill="none"
         stroke={BRAND.green600}
         strokeWidth={4}
@@ -212,8 +256,39 @@ const CardFlows: React.FC<{ t: number; content: CardContent }> = ({ t, content }
           }}
         />
       ))}
+      {/* The step the viewer is on keeps breathing once it has arrived. */}
+      <circle
+        cx={1180}
+        cy={700}
+        r={16 + 22 * wave(t, 1.6, 0.25)}
+        fill="none"
+        stroke={BRAND.blue500}
+        strokeWidth={2}
+        opacity={fade(t, 2.6, 3.0) * 0.35 * (1 - wave(t, 1.6, 0.25))}
+      />
     </svg>
-    <Chevrons t={t} start={1.6} placement="near" />
+    {/* Work keeps moving along the finished part of the line. */}
+    <div
+      style={
+        {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: 14,
+          height: 14,
+          marginLeft: -7,
+          marginTop: -7,
+          borderRadius: 999,
+          background: BRAND.green600,
+          boxShadow: `0 0 0 6px ${BRAND.green600}33`,
+          offsetPath: `path('${FLOW_DONE}')`,
+          offsetRotate: '0deg',
+          offsetDistance: `${((Math.max(0, t - 2.9) / 1.8) % 1) * 100}%`,
+          opacity: fade(t, 2.9, 3.1) * fade(t, endSec - 0.85, endSec - 0.4, 1, 0),
+        } as React.CSSProperties
+      }
+    />
+    <Chevrons t={t} start={1.6} placement="near" endSec={endSec} />
     <div
       style={{
         position: 'absolute',
@@ -223,6 +298,7 @@ const CardFlows: React.FC<{ t: number; content: CardContent }> = ({ t, content }
         flexDirection: 'column',
         gap: 28,
         maxWidth: 1100,
+        ...exitStyle(t, endSec),
       }}
     >
       {content.eyebrow ? (
@@ -281,7 +357,7 @@ const CardClienten: React.FC<{ t: number; content: CardContent; endSec: number }
   endSec,
 }) => (
   <div style={{ position: 'absolute', inset: 0, background: BRAND.blue800 }}>
-    <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: 'absolute', inset: 0 }}>
+    <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: 'absolute', inset: 0, ...exitStyle(t, endSec, 0.1) }}>
       <g fill="none" stroke={BRAND.blue600} strokeWidth={2}>
         {[260, 400, 540, 680].map((r, i) => (
           <circle
@@ -297,26 +373,41 @@ const CardClienten: React.FC<{ t: number; content: CardContent; endSec: number }
           />
         ))}
       </g>
+      {/* Rings keep leaving the centre, so the field never stands still. */}
+      {[0, 1, 2].map((i) => {
+        const p = ((Math.max(0, t - 1.0) / 2.4 + i / 3) % 1);
+        return (
+          <circle
+            key={`ripple-${i}`}
+            cx={1660}
+            cy={540}
+            r={180 + p * 560}
+            fill="none"
+            stroke={BRAND.blue500}
+            strokeWidth={2}
+            opacity={fade(t, 1.0, 1.6) * (1 - p) * 0.5}
+          />
+        );
+      })}
+      {/* Filled, not outlined: the font's own contours cross inside the 2, and
+          a stroke drew that crossing as a stray diagonal. */}
       <text
         x={140}
         y={1010}
         fontFamily={DISPLAY}
         fontWeight={700}
         fontSize={420}
-        letterSpacing={-20}
-        fill="none"
-        stroke={BRAND.blue500}
-        strokeWidth={3}
-        opacity={fade(t, 0.55, 1.45) * 0.7}
+        letterSpacing={-6}
+        fill={BRAND.blue500}
+        opacity={fade(t, 0.55, 1.45) * 0.28}
         style={{
-          transformOrigin: '140px 1010px',
-          transform: `scale(${ease(t, 0.55, endSec, 0.97, 1, Easing.out(Easing.sin))})`,
+          transform: `translateY(${ease(t, 0.55, 1.6, 60, 0)}px)`,
         }}
       >
         {stepLabel(content.step)}
       </text>
     </svg>
-    <Chevrons t={t} start={0.5} placement="far" />
+    <Chevrons t={t} start={0.5} placement="circles" endSec={endSec} />
     <div
       style={{
         position: 'absolute',
@@ -326,6 +417,7 @@ const CardClienten: React.FC<{ t: number; content: CardContent; endSec: number }
         flexDirection: 'column',
         gap: 28,
         maxWidth: 1080,
+        ...exitStyle(t, endSec),
       }}
     >
       {content.eyebrow ? (
@@ -544,7 +636,26 @@ export const DesignCard: React.FC<{ content: CardContent; durationSec?: number }
   const endSec = durationSec ?? 5;
   const design = resolveDesign(content);
 
+  const bumper = { balken: Balken, stappen: Stappen, stromen: Stromen }[design as string];
+  if (bumper) {
+    const step = content.step ?? 1;
+    const num = stepLabel(step);
+    const Bumper = bumper;
+    return (
+      <Bumper
+        t={t}
+        p={{
+          num,
+          label: content.eyebrow ?? `Hoofdstuk ${num}`,
+          title: content.title,
+          sub: content.subtitle,
+          step,
+          total: content.total ?? step,
+        }}
+      />
+    );
+  }
   if (design === 'clienten') return <CardClienten t={t} content={content} endSec={endSec} />;
   if (design === 'deadlines') return <CardDeadlines t={t} content={content} />;
-  return <CardFlows t={t} content={content} />;
+  return <CardFlows t={t} content={content} endSec={endSec} />;
 };

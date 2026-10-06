@@ -24,6 +24,7 @@ import {
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { isAbsolute, join, resolve } from 'node:path';
+import { assertInstallMatchesPlatform } from './preflight.mjs';
 
 function parseArgs(argv) {
   const out = { positional: [], workDir: null };
@@ -45,6 +46,11 @@ if (args.help || args.positional.length !== 1 || !args.workDir) {
   console.error('Usage: record-repro.mjs <scenario.mjs> --work <dir>');
   process.exit(args.help ? 0 : 1);
 }
+
+// After the usage check so -h still works on a tree installed elsewhere, and
+// before Playwright loads: recording is the first stage the PO runs, so it is
+// where a wrong-platform install is met first.
+assertInstallMatchesPlatform('record');
 
 const scenarioPath = isAbsolute(args.positional[0])
   ? args.positional[0]

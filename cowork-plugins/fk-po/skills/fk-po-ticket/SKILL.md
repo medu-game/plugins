@@ -5,7 +5,7 @@ description: Help a product owner draft a complete, well-grilled functional spec
 
 # FK PO Ticket
 
-Help a product owner go from a fuzzy idea to a clean Jira ticket. The skill grills the idea through codebase-aware questioning, produces a functional spec in English, attaches any design assets, and creates the Jira issue. Along the way it grows FlowKeeper's product glossary (`CONTEXT.md`) and decision log (`docs/adr/`) inline as new terms and product boundaries land — so every ticket also leaves behind a small contribution to the team's shared language.
+Help a product owner go from a fuzzy idea to a clean Jira ticket. The skill grills the idea through codebase-aware questioning, produces a functional spec in English, attaches any design assets, and creates the Jira issue. Along the way it grows FlowKeeper's product glossary (`docs/context/`) and decision log (`docs/adr/`) inline as new terms and product boundaries land — so every ticket also leaves behind a small contribution to the team's shared language.
 
 This is the Cowork counterpart to `fk-new-ticket` (which devs use in Claude Code). The key differences: this skill speaks the user's language during the conversation, never produces implementation details, never enters Plan Mode (Cowork doesn't have it), and is designed for a non-technical author.
 
@@ -33,12 +33,14 @@ Fall back to the **Atlassian MCP connector** (Bitbucket access) only when the re
 
 Each FlowKeeper repo carries its own product glossary and decision log alongside the code:
 
-- `backend-application/CONTEXT.md` and `backend-application/docs/adr/`
-- `frontend-application/CONTEXT.md` and `frontend-application/docs/adr/`
+- `backend-application/docs/context/` and `backend-application/docs/adr/`
+- `frontend-application/docs/context/` and `frontend-application/docs/adr/`
+
+**The glossary is one file per term** under `docs/context/` (FK-678). It used to be a single `CONTEXT.md` per repo, and that file still holds the terms written before the split — read it too, but never add to it. One file per term is what keeps two tickets from conflicting: appending to the shared file made it the single most common merge conflict in both repos.
 
 These files may or may not exist yet — this skill creates them lazily during grilling (see Phase 3 "Domain awareness"). When they do exist, read them at the start of every session: the glossary is the canonical source of truth for FlowKeeper's product language, and the ADRs explain *why* certain product boundaries are the way they are.
 
-The format of these files is documented in `CONTEXT-FORMAT.md` and `ADR-FORMAT.md` next to this SKILL.md.
+The format of these files is documented in `GLOSSARY-FORMAT.md` and `ADR-FORMAT.md` next to this SKILL.md.
 
 ## Language handling
 
@@ -72,7 +74,7 @@ Before grilling, get the lay of the land. Skip if you've already done this in a 
 
 Keep this phase **lean** — don't try to map the whole codebase. Aim for:
 
-1. **Read the glossary first.** If `backend-application/CONTEXT.md` or `frontend-application/CONTEXT.md` exists, read it. This is the canonical product language and you will use it to grill terminology during Phase 3. If `docs/adr/` exists in either repo, skim the filenames — read individual ADRs only when an idea touches one of those decisions.
+1. **Read the glossary first.** Read every `*.md` under `<repo>/docs/context/` in both repos, and the older `<repo>/CONTEXT.md` if it is still there — together those are the glossary. This is the canonical product language and you will use it to grill terminology during Phase 3. If `docs/adr/` exists in either repo, skim the filenames — read individual ADRs only when an idea touches one of those decisions.
 2. **Find similar existing code** — search for a feature that mirrors what's being proposed. One or two targeted searches is enough.
 3. **Identify affected areas** — which backend domains, which frontend entities, which screens.
 4. **Spot-check the key files** — `backend-application/routes/api_v1.php` for related endpoints, `frontend-application/src/endpoints/index.ts` for related calls. Read narrowly, not in full.
@@ -80,9 +82,9 @@ Keep this phase **lean** — don't try to map the whole codebase. Aim for:
 
 If a question comes up later that needs more code context, fetch it then. Don't pre-load.
 
-Code findings don't appear as prose in the Jira ticket — they exist to help you ask sharper questions and challenge the PO's assumptions. The two exceptions: (1) glossary terms and ADR decisions are written to `CONTEXT.md` / `docs/adr/` during Phase 3 "Domain awareness", and (2) the *content* of those writes is carried into the ticket's "Documentation updates" section in Phase 6 — inline text plus the actual files attached to the ticket — so it travels to whichever dev picks the ticket up.
+Code findings don't appear as prose in the Jira ticket — they exist to help you ask sharper questions and challenge the PO's assumptions. The two exceptions: (1) glossary terms and ADR decisions are written to `docs/context/` / `docs/adr/` during Phase 3 "Domain awareness", and (2) the *content* of those writes is carried into the ticket's "Documentation updates" section in Phase 6 — inline text plus the actual files attached to the ticket — so it travels to whichever dev picks the ticket up.
 
-**Also, before grilling: do a read-only `git status` check** on both repo checkouts (if local reads are being used). If you find pre-existing uncommitted changes in `CONTEXT.md` or `docs/adr/` from a previous PO session, surface them before doing anything else — see the "Warn on stale doc changes" rule in Hard constraints.
+**Also, before grilling: do a read-only `git status` check** on both repo checkouts (if local reads are being used). If you find pre-existing uncommitted changes under `docs/context/` or `docs/adr/` from a previous PO session, surface them before doing anything else — see the "Warn on stale doc changes" rule in Hard constraints.
 
 ## Phase 3: Grill the idea
 
@@ -90,7 +92,7 @@ Now interrogate the spec. Operating principles:
 
 **Code-aware, not code-prescriptive.** Use what you find in the code to ask sharper questions — never to prescribe technical solutions. The PO is articulating *what* needs to happen; the dev team decides *how*.
 
-**Look up facts; put decisions to the PO.** Split the two and never conflate them. A *fact* is something already true and discoverable — how the current flow behaves, what a term already means in `CONTEXT.md`, whether an endpoint or screen exists. Look those up yourself; don't make the PO answer what the codebase already answers. A *decision* is a choice about what the product should do — who can see a thing, what happens in an edge case, whether a term takes on a new meaning. Those are hers to make: put each one to her and wait for her answer. Never resolve a decision on your own just because the grilling has momentum — a spec built from your own assumed answers is worse than one that carries an honest Open Question. (This is the one place a grilling agent most often goes wrong: it explores the code, finds *a* plausible answer, and quietly adopts it as *the* answer instead of asking.)
+**Look up facts; put decisions to the PO.** Split the two and never conflate them. A *fact* is something already true and discoverable — how the current flow behaves, what a term already means in the glossary, whether an endpoint or screen exists. Look those up yourself; don't make the PO answer what the codebase already answers. A *decision* is a choice about what the product should do — who can see a thing, what happens in an edge case, whether a term takes on a new meaning. Those are hers to make: put each one to her and wait for her answer. Never resolve a decision on your own just because the grilling has momentum — a spec built from your own assumed answers is worse than one that carries an honest Open Question. (This is the one place a grilling agent most often goes wrong: it explores the code, finds *a* plausible answer, and quietly adopts it as *the* answer instead of asking.)
 
 **One question at a time.** Ask one question, wait for the answer, then ask the next. Always provide your recommended answer based on what you've found in the code. If the PO is unsure, offer 2–3 concrete options and label your preference.
 
@@ -106,11 +108,13 @@ Now interrogate the spec. Operating principles:
 
 These four principles are the heart of the docs-aware grilling loop. They turn each grilling session into a small contribution to FlowKeeper's product language and decision log — so the glossary and ADRs grow over time instead of being written as a one-off project.
 
-**Challenge against the glossary.** When `CONTEXT.md` exists and the PO uses a term that conflicts with what's there, surface it immediately. "De glossary noemt 'Project Lead' voor wat jij nu 'projectmanager' noemt — bedoel je hetzelfde of is dit een andere rol?" Don't silently translate; the conflict itself is information.
+**Challenge against the glossary.** When the PO uses a term that conflicts with one already in the glossary, surface it immediately. "De glossary noemt 'Project Lead' voor wat jij nu 'projectmanager' noemt — bedoel je hetzelfde of is dit een andere rol?" Don't silently translate; the conflict itself is information.
 
-**Capture canonical terms inline.** When a fuzzy term lands on a clear canonical name during grilling, write it to the appropriate `CONTEXT.md` *right then*, before moving on to the next question. Don't batch these up at the end — half of them will be forgotten. Use the format in `CONTEXT-FORMAT.md`. Decide which repo's glossary it belongs in by asking: is this primarily about data modelling and persistence (backend), or user-visible behaviour and screens (frontend)? If both, write it in both with consistent wording.
+**Capture canonical terms inline.** When a fuzzy term lands on a clear canonical name during grilling, write it *right then*, before moving on to the next question. Don't batch these up at the end — half of them will be forgotten. Use the format in `GLOSSARY-FORMAT.md`. Decide which repo's glossary it belongs in by asking: is this primarily about data modelling and persistence (backend), or user-visible behaviour and screens (frontend)? If both, write it in both with consistent wording.
 
-Create `CONTEXT.md` lazily — only when there's a first term to write. Same for `docs/adr/`.
+**One term, one new file: `<repo>/docs/context/<term-lowercased-hyphenated>.md`** — e.g. `docs/context/cancellation-window.md`, with the `## Cancellation Window` heading as its first line. Never append to `CONTEXT.md`: that shared file is what made the glossary the most frequent merge conflict in both repos, and a new file cannot conflict with anything. Editing a term that still lives in the backend's legacy `CONTEXT.md` is the one case where you touch that file. The frontend no longer has it (FK-680); every frontend term is already its own file.
+
+Create `docs/context/` lazily — only when there's a first term to write. Same for `docs/adr/`.
 
 **Offer ADRs sparingly.** Most grilling sessions do *not* produce an ADR. Only offer one when all three are true:
 
@@ -122,7 +126,7 @@ In a PO context this is usually a *product boundary* decision ("time entries can
 
 When an ADR is warranted, ask the PO: "Dit is een beslissing waar het dev team later vragen over gaat hebben — zal ik 'm vastleggen als ADR in de relevante repo?" If yes, write a 1–3 sentence ADR in the appropriate `docs/adr/` and continue grilling.
 
-**Never commit, never push.** All `CONTEXT.md` and ADR writes are local file writes only. Do not run `git add`, `git commit`, or any push operations — even if the PO asks. The dev who picks up the resulting ticket via `/fk-ticket FK-###` will see the changes in `git status` at session start and decide whether to fold them into their feature PR or commit them separately. Surface what you wrote in Phase 7 (handoff) and in the Jira ticket description's "Documentation updates" section so nothing gets lost.
+**Never commit, never push.** All glossary and ADR writes are local file writes only. Do not run `git add`, `git commit`, or any push operations — even if the PO asks. The dev who picks up the resulting ticket via `/fk-ticket FK-###` will see the changes in `git status` at session start and decide whether to fold them into their feature PR or commit them separately. Surface what you wrote in Phase 7 (handoff) and in the Jira ticket description's "Documentation updates" section so nothing gets lost.
 
 **Prefer multiple choice over open-ended.** When you can frame a question as a choice between 2–4 concrete options, do that instead of asking open-endedly. "Wie mag dit zien — (A) alle gebruikers, (B) alleen admins, (C) configureerbaar per tenant?" lands better with a non-technical author than "wie moet hier toegang toe hebben?". Always label your recommended option and say briefly why.
 
@@ -182,7 +186,7 @@ Then produce the spec **in English**, structured as:
 [List of attached design files, or "No design provided"]
 
 ## Documentation updates
-[For each CONTEXT.md term added or changed this session, include the FULL proposed term text inline here — not just the filename — so the content travels with the ticket. For each new ADR, include its title and 1–3 sentence body inline. Note that the exact files are also attached to the ticket (CONTEXT.md changes as a `.patch`, new ADRs as `.md`). Omit this section if no docs were touched.]
+[For each glossary term added or changed this session, include the FULL proposed term text inline here — not just the filename — so the content travels with the ticket. For each new ADR, include its title and 1–3 sentence body inline. Note that the exact files are also attached to the ticket (a new term and a new ADR as `.md`, an edit to the backend's legacy `CONTEXT.md` as a `.patch`). Omit this section if no docs were touched.]
 
 ## Open Questions
 [Anything that stayed unresolved during grilling]
@@ -210,7 +214,7 @@ After approval, use the Atlassian MCP tools to create the issue. The exact tool 
   - *Users / Actors*
   - *Acceptance Criteria*
   - *Edge Cases*
-  - *Documentation updates* — only include this section if `CONTEXT.md` or `docs/adr/` files were written or modified during the session. Include the ACTUAL proposed content inline so it travels with the ticket, not just filenames: for each CONTEXT.md term, give the repo-prefixed file, the term name, and the full term definition as written to the file; for each new ADR, give the repo-prefixed file, its title, and its 1–3 sentence body. End the section with: *"The exact files are attached to this ticket — CONTEXT.md changes as a `.patch`, new ADRs as `.md`. The dev running `/fk-ticket` applies them to their own checkout (`git apply` the patch, drop the ADR files into `docs/adr/`). Do not assume these files exist locally for whoever picks this up — the PO's checkout is not the dev's checkout."*
+  - *Documentation updates* — only include this section if glossary or `docs/adr/` files were written or modified during the session. Include the ACTUAL proposed content inline so it travels with the ticket, not just filenames: for each glossary term, give the repo-prefixed file, the term name, and the full term definition as written to the file; for each new ADR, give the repo-prefixed file, its title, and its 1–3 sentence body. End the section with: *"The exact files are attached to this ticket — a new glossary term and a new ADR as `.md`, an edit to the backend's legacy CONTEXT.md as a `.patch`. The dev running `/fk-ticket` applies them to their own checkout (`git apply` the patch, drop the ADR files into `docs/adr/`). Do not assume these files exist locally for whoever picks this up — the PO's checkout is not the dev's checkout."*
   - *Open Questions*
 - **Labels**: add `po-drafted` so devs know this came from the PO flow and may need refinement before estimation
 - **Priority**: ask the PO if you don't already know
@@ -242,25 +246,25 @@ If you collected one or more uploaded file paths in Phase 4:
 
 ### Attach documentation changes
 
-If you wrote to `CONTEXT.md` or `docs/adr/` during this session, attach the changes so they travel with the ticket. **The PO's local checkout is not the dev's checkout** — a dev who picks the ticket up on another machine will not have these uncommitted local files, so the content must live on the ticket (inline in the description, plus the exact files attached here).
+If you wrote a glossary term or an ADR during this session, attach it so it travels with the ticket. **The PO's local checkout is not the dev's checkout** — a dev who picks the ticket up on another machine will not have these uncommitted local files, so the content must live on the ticket (inline in the description, plus the exact files attached here).
 
-1. For each MODIFIED tracked file (e.g. `CONTEXT.md`), produce a read-only patch — this does not stage, commit, or push anything:
+1. **New glossary terms and new ADRs are untracked files, so they do NOT appear in `git diff` — attach the `.md` file verbatim.** This is the normal case now that a term is its own file under `docs/context/`. Do not try to produce a patch for a file git has never seen: `git diff` prints nothing and you would attach an empty patch.
+
+2. Only for a term you *edited* that still lives in the backend's legacy `CONTEXT.md` do you need a patch — that file is tracked, so a read-only diff works (this stages, commits and pushes nothing):
 
    ```sh
    git -C <repo-path> diff -- CONTEXT.md > /tmp/FK-XXX-<repo>-context.patch
    ```
 
-2. New ADR files are untracked, so they do NOT appear in `git diff`. Attach each new ADR `.md` file verbatim instead.
-
-3. Attach the patch(es) and ADR file(s) with the same helper used for designs (resolve its absolute path as in "Attach design assets"):
+3. Attach the file(s) with the same helper used for designs (resolve its absolute path as in "Attach design assets"):
 
    ```sh
    bash <absolute-path-to-script> FK-XXX \
-     "/tmp/FK-XXX-frontend-context.patch" \
+     "<repo-path>/frontend-application/docs/context/cancellation-window.md" \
      "<repo-path>/frontend-application/docs/adr/0003-....md"
    ```
 
-4. On the dev side the patch is applied with `git apply FK-XXX-<repo>-context.patch` and the ADR files are dropped into `docs/adr/`. The dev-side `/fk-ticket` skill should pull these attachments rather than assume local uncommitted changes.
+4. On the dev side each attached `.md` is dropped into the matching directory (`docs/context/` or `docs/adr/`); a `*-context.patch`, if there is one, is applied with `git apply`. The dev-side `/fk-ticket` skill should pull these attachments rather than assume local uncommitted changes.
 
 **If the attach helper says `No Jira credentials config found.`**, do not work around it — the inline content in the description is still complete. Note in Phase 7 which files were not attached, and that the dev recreates them from the inline text in the description.
 
@@ -270,25 +274,25 @@ Tell the PO in their conversation language:
 
 > "Klaar! De ticket staat in Jira: [FK-### with URL]. Ik heb [N] design assets meegestuurd en de label `po-drafted` toegevoegd. Een dev kan 'm oppakken met `/fk-ticket FK-###` in Claude Code."
 
-If `CONTEXT.md` or ADR files were written during the session, list them explicitly so the PO knows what landed on disk:
+If glossary or ADR files were written during the session, list them explicitly so the PO knows what landed on disk:
 
 > "Tijdens het grillen heb ik de volgende docs bijgewerkt:
-> - `backend-application/CONTEXT.md` — term 'Cancellation Window' toegevoegd
+> - `backend-application/docs/context/cancellation-window.md` — term 'Cancellation Window' toegevoegd
 > - `backend-application/docs/adr/0003-edit-lock-after-invoicing.md` — nieuwe ADR
 >
-> De inhoud staat in het ticket zelf én als bijlage (CONTEXT.md-wijziging als `.patch`, nieuwe ADR's als `.md`), dus de dev kan ze toepassen ongeacht op welke machine hij werkt. Op jouw checkout staan ze ook nog als lokale wijziging — laat ze staan of gooi ze weg, de dev werkt vanaf het ticket. Geen actie van jou nodig."
+> De inhoud staat in het ticket zelf én als bijlage (nieuwe term en nieuwe ADR's als `.md`, een wijziging in de oude backend-CONTEXT.md als `.patch`), dus de dev kan ze toepassen ongeacht op welke machine hij werkt. Op jouw checkout staan ze ook nog als lokale wijziging — laat ze staan of gooi ze weg, de dev werkt vanaf het ticket. Geen actie van jou nodig."
 
 If anything was deferred (e.g. priority not set, design promised later, attachment setup not yet done so files weren't uploaded), remind the PO of the open items in their language.
 
 ## Hard constraints on the spec and ticket
 
 - **English in the ticket, full stop.** Even if the PO insists on Dutch, explain once that the spec is for an international team and produce it in English. If they still insist after that, comply — but flag in the description that this conflicts with the team language convention.
-- **English in `CONTEXT.md` and ADRs, full stop.** Same reasoning — these are team artifacts. The Dutch grilling conversation is the scratchpad; what lands in the docs is English.
+- **English in the glossary and ADRs, full stop.** Same reasoning — these are team artifacts. The Dutch grilling conversation is the scratchpad; what lands in the docs is English.
 - **No implementation details in the ticket.** No file paths, function names, class names, module names, or framework references. No "use a queue", "add a service", "refactor X". The dev team decides the technical approach during `/fk-ticket`.
 - **No code, no pseudocode, no data schemas.** If you catch yourself heading there, stop and rephrase as a question for the PO instead.
-- **Code findings inform grilling questions, not the ticket body.** What you read in the repo helps you ask better questions — its content does not appear as prose in the Jira ticket. The only persistent artifacts of code exploration are (a) `CONTEXT.md` and ADR file writes on disk, and (b) the content of those writes carried into the ticket's "Documentation updates" section (inline text plus the attached `.patch` / ADR `.md` files).
-- **Never *write* git state.** Do not run `git add`, `git commit`, `git push`, `git checkout`, or any branch operations. Read-only inspection IS allowed: `git status` (stale-doc check) and `git diff` (to produce the doc patch attached to the ticket in Phase 6). `CONTEXT.md` and ADR writes are plain file writes; the dev who picks up the ticket via `/fk-ticket` is responsible for committing them. If the PO explicitly asks "wil je dit committen?", explain once that this skill leaves git state to a developer on purpose, then continue.
-- **Warn on stale doc changes.** At the start of a session, if local reads are being used, do a quick `git status` check (read-only — no modifications). If there are pre-existing uncommitted changes in `CONTEXT.md` or `docs/adr/` from a previous PO session, surface them: "Je hebt nog wat openstaande doc-wijzigingen van een vorige sessie staan — moet ik ze laten staan of moet een dev ze eerst oppakken voordat we beginnen?" Don't proceed silently on top of them.
+- **Code findings inform grilling questions, not the ticket body.** What you read in the repo helps you ask better questions — its content does not appear as prose in the Jira ticket. The only persistent artifacts of code exploration are (a) glossary and ADR file writes on disk, and (b) the content of those writes carried into the ticket's "Documentation updates" section (inline text plus the attached `.patch` / ADR `.md` files).
+- **Never *write* git state.** Do not run `git add`, `git commit`, `git push`, `git checkout`, or any branch operations. Read-only inspection IS allowed: `git status` (stale-doc check) and `git diff` (to produce the doc patch attached to the ticket in Phase 6). Glossary and ADR writes are plain file writes; the dev who picks up the ticket via `/fk-ticket` is responsible for committing them. If the PO explicitly asks "wil je dit committen?", explain once that this skill leaves git state to a developer on purpose, then continue.
+- **Warn on stale doc changes.** At the start of a session, if local reads are being used, do a quick `git status` check (read-only — no modifications). If there are pre-existing uncommitted changes under `docs/context/` or `docs/adr/` from a previous PO session, surface them: "Je hebt nog wat openstaande doc-wijzigingen van een vorige sessie staan — moet ik ze laten staan of moet een dev ze eerst oppakken voordat we beginnen?" Don't proceed silently on top of them.
 
 ## When the PO wants to wrap up early
 

@@ -14,13 +14,13 @@ The exploration approach borrows from Matt Pocock's [`zoom-out`](https://github.
 ## What this skill does
 
 1. **Understand what the PO wants explained.** Could be a screen, a feature, a user flow, a domain concept, a permission rule. If vague, ask one short clarifying question — never start exploring blindly.
-2. **Read the glossary first.** Load `backend-application/CONTEXT.md` and `frontend-application/CONTEXT.md` if they exist (see `../fk-po-ticket/CONTEXT-FORMAT.md`). The vocabulary in those files is what you will use in the explanation.
+2. **Read the glossary first.** Read every `*.md` under `docs/context/` in both repos, plus the legacy `<repo>/CONTEXT.md` if that repo still has one (see `../fk-po-ticket/GLOSSARY-FORMAT.md`). The vocabulary in those files is what you will use in the explanation.
 3. **Find the area in the code.** Prefer local filesystem reads at `~/FlowKeeper/{backend,frontend}-application/`. Fall back to Atlassian/Bitbucket MCP only when local reads aren't available.
 4. **Trace the user-visible behaviour, not the architecture.**
    - Which screens or pages show this?
    - Which user actions can trigger or change it?
    - Which roles/users see or interact with it?
-   - Which other product concepts does it touch (using `CONTEXT.md` terms)?
+   - Which other product concepts does it touch (using glossary terms)?
    - Where does the flow break down, branch, or surprise (empty states, error states, permission gates)?
 5. **Write the explanation as a short product story.** 3–6 short paragraphs, in the PO's language (Dutch by default), in vocabulary the PO already uses.
 6. **Offer a bridge to the next step.** End with two concrete offers: "wil je hier iets aan veranderen?" → `fk-po-ticket`, or "wil je hier verder over nadenken zonder dat het meteen een ticket wordt?" → `fk-po-brainstorm`.
@@ -66,7 +66,7 @@ Don't pick for her. Just present both and wait.
 - It does **not** create tickets. That's `fk-po-ticket`.
 - It does **not** grill the PO with questions about a future change. That's `fk-po-brainstorm`.
 - It does **not** review code quality or suggest refactors — code is a source of truth here, not a target.
-- It does **not** write to `CONTEXT.md` or `docs/adr/`. Exploration only consumes the glossary; the ticket and brainstorm skills are where new terms land.
+- It does **not** write to `docs/context/` or `docs/adr/`. Exploration only consumes the glossary; the ticket and brainstorm skills are where new terms land.
 
 ## Hard constraints
 

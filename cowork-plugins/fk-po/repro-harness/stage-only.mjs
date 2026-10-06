@@ -6,11 +6,12 @@
 // live preview at an earlier recording so visual tweaks cost nothing but a
 // browser reload.
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEvents } from './events.mjs';
 import { buildHelpProps, loadBeats, loadFocus } from './storyboard.mjs';
+import { loadCapture, stagePublicDir } from './stage.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -22,43 +23,39 @@ if (!workArg || argv.indexOf('--work') === -1) {
 }
 
 const workDir = resolve(workArg);
-const captureJson = join(workDir, 'capture.json');
-if (!existsSync(captureJson)) {
+const capture = loadCapture(workDir);
+if (!capture) {
   console.error(`[stage] no capture.json in ${workDir}`);
   process.exit(1);
 }
 
-const capture = JSON.parse(readFileSync(captureJson, 'utf8'));
 const narration = loadBeats(workDir);
 const events = parseEvents(readFileSync(capture.eventsFile, 'utf8'));
 const props = buildHelpProps(events, narration, loadFocus(workDir), {
-  title: narration.meta?.title ?? 'Help video',
-  subtitle: narration.meta?.subtitle ?? 'Flowkeeper helpcentrum',
+  title: narration.meta?.title ?? 'Helpvideo',
+  subtitle: narration.meta?.subtitle ?? '',
 });
-
-const introSfxName = 'intro-sfx.mp3';
-props.introSfx = existsSync(join(here, 'assets', introSfxName)) ? introSfxName : null;
+props.page = capture.viewport;
 
 const publicDir = join(here, 'remotion', 'public');
-const publicAudio = join(publicDir, 'audio');
-rmSync(publicAudio, { recursive: true, force: true });
-mkdirSync(publicAudio, { recursive: true });
-copyFileSync(capture.rawMp4, join(publicDir, 'capture.mp4'));
-if (props.introSfx) copyFileSync(join(here, 'assets', props.introSfx), join(publicDir, props.introSfx));
-// The brand intro clip and its settled lockup are committed assets too.
-for (const asset of ['intro-dark.mp4', 'intro-light.mp4', 'logo-lockup.png',
-  'sfx-whoosh.mp3', 'sfx-land.mp3', 'sfx-ping.mp3']) {
-  const from = join(here, 'assets', asset);
-  if (existsSync(from)) copyFileSync(from, join(publicDir, asset));
-}
-for (const beat of props.beats) copyFileSync(join(workDir, beat.audio), join(publicDir, beat.audio));
+stagePublicDir({
+  props,
+  rawMp4: capture.rawMp4,
+  workDir,
+  assetsDir: join(here, 'assets'),
+  publicDir,
+});
 
 // The studio reads its props from the public dir, so the whole preview is one
-// directory the container can mount.
+// directory the container can mount, and studio.sh hands it this file with
+// --props.
+//
+// It deliberately does NOT also write remotion/studio-props.json, the fallback
+// Root.tsx imports. That one is COMMITTED, so writing it here left every
+// checkout dirty from the first video onward and `git pull --ff-only` refused
+// ever after. On a teammate's Mac that is the daily sync, failing in a log
+// nobody reads.
 writeFileSync(join(publicDir, 'studio-props.json'), JSON.stringify(props, null, 2), 'utf8');
-// Root.tsx imports this one, so the studio opens on the real run instead of
-// an empty placeholder.
-writeFileSync(join(here, 'remotion', 'studio-props.json'), JSON.stringify(props, null, 2), 'utf8');
 
 console.log(`[stage] ${props.beats.length} beats staged from ${workDir}`);
 console.log('[stage] run ./studio.sh to preview, or render-help.mjs to render');

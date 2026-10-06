@@ -9,7 +9,7 @@
 
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { loadAppEnv, startRun } from './helpers.mjs';
+import { HELP_VIEWPORT, loadAppEnv, startRun } from './helpers.mjs';
 import { loadBeats, runStoryboard } from './storyboard.mjs';
 
 // Before the storyboard is imported, not after: a storyboard reads the keys it
@@ -40,6 +40,7 @@ const narration = loadBeats(workDir);
 const { page, run } = await startRun({
   name: meta?.slug ?? 'help',
   account: meta?.account ?? 'acc',
+  viewport: HELP_VIEWPORT,
 });
 
 try {

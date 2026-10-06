@@ -8,9 +8,8 @@
 #   ./studio.sh --work <dir>        stage a specific run first
 #   ./studio.sh --port 3211         pick another port
 #
-# Why a container: this harness usually runs inside the claude-sandbox, which
-# publishes no ports to the Mac, so a studio started here would be unreachable.
-# The container publishes one, exactly like the dev stack's Vite container does.
+# On a Mac the studio runs directly. Inside the claude-sandbox it runs in a
+# container, because the sandbox publishes no ports to the Mac.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,7 +20,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --work) WORK="$2"; shift 2 ;;
     --port) PORT="$2"; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -36,17 +35,31 @@ if [ ! -f "$HERE/remotion/public/capture.mp4" ]; then
   exit 1
 fi
 
-PROPS="$HERE/remotion/public/studio-props.json"
-if [ ! -f "$PROPS" ]; then
+if [ ! -f "$HERE/remotion/public/studio-props.json" ]; then
   echo "[studio] no studio-props.json; re-run with --work <dir>." >&2
   exit 1
 fi
 
+STUDIO_ARGS="remotion/index.ts --public-dir remotion/public --props remotion/public/studio-props.json"
+
+if [ ! -f /.dockerenv ]; then
+  echo "[studio] starting on http://localhost:$PORT (Ctrl+C stops it)"
+  echo "[studio] edit remotion/tweaks.ts and the preview reloads by itself"
+  cd "$HERE"
+  # shellcheck disable=SC2086
+  exec npx remotion studio $STUDIO_ARGS --port "$PORT"
+fi
+
+# The Docker socket is the Mac's, so the mount needs the HOST path of this
+# directory: the sandbox mounts HOST_WORKSPACE at /workspace.
+if [ -z "${HOST_WORKSPACE:-}" ] || [ "${HERE#/workspace/}" = "$HERE" ]; then
+  echo "[studio] cannot map $HERE to a host path (HOST_WORKSPACE unset, or not under /workspace)." >&2
+  exit 1
+fi
+HOST_HARNESS="$HOST_WORKSPACE/${HERE#/workspace/}"
+
 NAME="fk_help_studio"
 docker rm -f "$NAME" >/dev/null 2>&1 || true
-
-# The Docker socket is the Mac's, so the mount needs the HOST path.
-HOST_HARNESS="${HOST_WORKSPACE:-$HOME/FlowKeeper}/cowork-plugins/fk-po/repro-harness"
 
 echo "[studio] starting on http://localhost:$PORT"
 echo "[studio] edit remotion/tweaks.ts and the preview reloads by itself"
@@ -55,7 +68,7 @@ docker run -d --name "$NAME" \
   -v "$HOST_HARNESS:/app" \
   -w /app \
   node:22-bookworm-slim \
-  sh -c "npx remotion studio remotion/index.ts --port 3000 --host 0.0.0.0 --public-dir remotion/public" \
+  sh -c "npx remotion studio $STUDIO_ARGS --port 3000 --host 0.0.0.0" \
   >/dev/null
 
 sleep 4

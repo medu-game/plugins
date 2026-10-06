@@ -32,7 +32,15 @@ no dev-stack lock, and no dev certificates.
 
 ## Help videos (FK-633)
 
-Three stages, deliberately separate, because they cost very different things:
+    npm run make -- <storyboard> --probe   # walk the route, screenshot every beat, print script + hash
+    npm run make -- <storyboard> --approved <hash>  # narrate + record + render into a new run dir
+    npm run frames -- <video.mp4>          # one frame per subtitle cue, for the review
+
+Runs land in `.fk-po/work/<slug>/run-N`. Narration reuses a cached take from
+`.fk-po/tts-cache/` when the spoken text is unchanged; `FK_NARRATE_STUB=1`
+forces a silent track without spending credit, and `--fresh` buys a new take of
+unchanged text when the read itself should change. The three stages underneath,
+which can still be run on their own:
 
 | stage | command | cost | re-run when |
 | --- | --- | --- | --- |
@@ -53,18 +61,18 @@ For a live preview:
 
 Edit `remotion/tweaks.ts` and the preview reloads by itself. Scrub the
 timeline, find the frame you dislike, change the number, look again. Render
-only when you are happy. Stop it with `docker rm -f fk_help_studio`.
-
-The studio runs in a container because the claude-sandbox publishes no ports
-to the Mac, so a studio started directly here would be unreachable.
+only when you are happy. On a Mac it runs directly (Ctrl+C stops it). Inside
+the claude-sandbox, which publishes no ports to the Mac, it runs in a container
+instead: stop that with `docker rm -f fk_help_studio`.
 
 ### Voice
 
-Two designed voices, both on `eleven_v3` (multilingual_v2 leaves an American
-accent on Dutch):
+- `fenna` — Fenna (`p4efl2GlWK0o6sAQEEkp`, default, `eleven_v3`, stability 0.5): Melissa's house voice since 2026-09-13; on v4 she has a slight English accent
+- `man` — Flowkeeper NL man (`U4S7eJBqHUvUlS4hiNhx`, `eleven_v4`)
+- `vrouw` — Flowkeeper NL vrouw (`a0pCzzi71BFyUJUDzeTq`, `eleven_v4`)
 
-- `a0pCzzi71BFyUJUDzeTq` — Flowkeeper NL vrouw (default)
-- `U4S7eJBqHUvUlS4hiNhx` — Flowkeeper NL man
+Choose with `npm run make -- <storyboard> --approved <hash> --voice vrouw`. Every
+MP4 gets a `.json` beside it naming the voice, model and stability used.
 
 The key lives in `.fk-po/eleven.env`, never on a command line.
 

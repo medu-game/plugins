@@ -5,7 +5,7 @@
 // Deliberately shares nothing with scripts/sandbox-e2e: this harness targets
 // the acceptance environment from Cowork, needs no docker and no dev-stack lock.
 import { chromium } from 'playwright';
-import { existsSync, globSync, readFileSync } from 'node:fs';
+import { existsSync, globSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createEventLog } from './events.mjs';
 
@@ -13,6 +13,12 @@ const DEFAULT_BASE_URL = 'https://app-acc.flowkeeper.nl';
 // Full HD; must equal the Remotion composition size (remotion/constants.ts)
 // so click coordinates map 1:1 onto video pixels.
 export const VIEWPORT = { width: 1920, height: 1080 };
+// Help videos record at the size of the window they are shown in (remotion
+// brand.ts WINDOW, height made even for x264), so the capture lands 1:1 with no
+// downscale and the UI reads 14% larger than at 1920. Playwright records CSS
+// pixels whatever the deviceScaleFactor, so a smaller viewport is the only way
+// to get a larger, still sharp UI.
+export const HELP_VIEWPORT = { width: 1680, height: 944 };
 // How long a control gets to react to the pointer arriving before its position
 // is taken as final. Measured on the dashboard's new-task button: it reveals a
 // label on hover and its disc shifts 49px left doing so, so a coordinate read
@@ -101,7 +107,7 @@ export function resolveConfig(env = process.env, { account = 'acc' } = {}) {
   };
 }
 
-export async function startRun({ name, account = 'acc' }) {
+export async function startRun({ name, account = 'acc', viewport = VIEWPORT }) {
   const config = resolveConfig(process.env, { account });
   const recordDir = process.env.REPRO_RECORD_DIR || null;
   // Opt-in local-stack support. Against acceptance neither is set and the
@@ -118,10 +124,11 @@ export async function startRun({ name, account = 'acc' }) {
   });
   const context = await browser.newContext({
     baseURL: config.baseURL,
-    viewport: VIEWPORT,
+    viewport,
     ...(insecureTls ? { ignoreHTTPSErrors: true } : {}),
-    ...(recordDir ? { recordVideo: { dir: recordDir, size: VIEWPORT } } : {}),
+    ...(recordDir ? { recordVideo: { dir: recordDir, size: viewport } } : {}),
   });
+  if (recordDir) writeFileSync(join(recordDir, 'viewport.json'), JSON.stringify(viewport), 'utf8');
   const eventsFile =
     process.env.REPRO_EVENTS_FILE ||
     join(recordDir || process.cwd(), 'events.jsonl');
@@ -202,6 +209,9 @@ export async function startRun({ name, account = 'acc' }) {
     async click(selector, label) {
       const locator = page.locator(selector).first();
       await locator.waitFor({ state: 'visible', timeout: 10_000 });
+      // The click below presses a coordinate, which Playwright does not scroll
+      // to. A button under the fold took a probe round on 2026-10-02.
+      await locator.scrollIntoViewIfNeeded();
 
       // Hover first, then measure. A control that expands or shifts under the
       // pointer sits in one place before it arrives and another after, and the

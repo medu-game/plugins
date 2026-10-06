@@ -34,20 +34,33 @@ import { spawnSync } from 'node:child_process';
 import { isAbsolute, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { DESIGN_MIN_SEC } from './remotion/card-designs.mjs';
+import { resolveFkPoDir } from './fk-po-dir.mjs';
+import { cachedSynthesize } from './tts-cache.mjs';
+import { tightenBeatAudio } from './pauses.mjs';
 
 const require = createRequire(import.meta.url);
 
 const ELEVENLABS_ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech';
-// "Flowkeeper NL man", picked by Tim on 2026-08-25 from a stability sweep.
-// The female voice "Flowkeeper NL vrouw" is a0pCzzi71BFyUJUDzeTq, still saved
-// in the account: switching back is one --voice away.
-const DEFAULT_VOICE = 'U4S7eJBqHUvUlS4hiNhx';
-// v3 reads Dutch as Dutch; multilingual_v2 leaves an American accent on it.
-const DEFAULT_MODEL = 'eleven_v3';
-// eleven_v3 takes stability as one of three steps, not a continuous dial. 1.0
-// is the steadiest read and the one Tim chose after hearing all three; lower
-// values let the model act more, which is wrong for someone explaining a form.
+// --voice takes either name or a raw id. Fenna is the house voice, Melissa's
+// pick on 2026-09-13. man and vrouw are Tim's designed voices, judged best on v4.
+export const VOICES = {
+  fenna: 'p4efl2GlWK0o6sAQEEkp',
+  man: 'U4S7eJBqHUvUlS4hiNhx',
+  vrouw: 'a0pCzzi71BFyUJUDzeTq',
+};
+export const DEFAULT_VOICE_NAME = 'fenna';
+const DEFAULT_VOICE = VOICES[DEFAULT_VOICE_NAME];
+// v4 replaced v3 on 2026-10-05. eleven_v4_hq is not open to this account.
+const DEFAULT_MODEL = 'eleven_v4';
+// 1.0 is the steadiest read, the one Tim chose on v3; lower values let the
+// model act more. Fenna reads at 0.5: Melissa found the steady male read too
+// flat, and picked Fenna as the only voice lively enough (2026-09-13).
 const DEFAULT_STABILITY = 1.0;
+const VOICE_STABILITY = { fenna: 0.5 };
+// Fenna stays on v3: on v4 she reads with a slight English accent (Tim,
+// 2026-10-06, same sentence on both models).
+const VOICE_MODEL = { fenna: 'eleven_v3' };
 // Silence appended to every beat's audio. Sentences synthesized back to back
 // arrive too fast on top of each other; this is the breath between them, and it
 // is added here rather than asked of the model so it is the same every run.
@@ -57,6 +70,16 @@ const GAP_SEC = 0.45;
 // the model has no context beyond the sentence it is given. Set --per-beat to
 // go back to the old path.
 const JOIN = '\n\n';
+// Timing, all from Melissa's review of the 2026-10-05 dashboard video:
+// - no pause inside a line longer than this; v3 put 0.8 to 1.5s between sentences
+const MAX_PAUSE_SEC = 0.5;
+// - the picture settles this long before the voice starts, after the intro and
+//   after every card; the voice used to land on the first frame
+const LEAD_IN_SEC = 0.6;
+// - a screen beat outlasts its voice by at most this. Longer only when its
+//   action still runs, which the recording waits for by itself. minSec 16 on a
+//   line of 11s left five silent seconds at 0:32.
+const MAX_HOLD_SEC = 1.0;
 
 // Calm Dutch narration runs around 2.6 words a second. The trailing pause
 // gives the viewer a beat to look at what was just described.
@@ -284,6 +307,7 @@ function parseArgs(argv) {
     voice: null,
     stability: null,
     perBeat: false,
+    fresh: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -292,6 +316,7 @@ function parseArgs(argv) {
     else if (a === '--voice') out.voice = argv[++i];
     else if (a === '--stability') out.stability = Number(argv[++i]);
     else if (a === '--per-beat') out.perBeat = true;
+    else if (a === '--fresh') out.fresh = true;
     else if (a === '-h' || a === '--help') out.help = true;
     else if (!out.storyboard) out.storyboard = a;
     else {
@@ -310,7 +335,7 @@ if (isEntrypoint) {
   if (args.help || !args.storyboard || !args.workDir) {
     console.error(
       'Usage: narrate.mjs <storyboard.mjs> --work <dir> [--voice <id>]' +
-        ' [--stability 0|0.5|1] [--per-beat]',
+        ' [--stability 0|0.5|1] [--per-beat] [--fresh]',
     );
     process.exit(args.help ? 0 : 1);
   }
@@ -340,18 +365,38 @@ if (isEntrypoint) {
     process.exit(1);
   }
 
-  const apiKey = resolveApiKey();
-  const voiceId = args.voice ?? process.env.ELEVENLABS_VOICE_ID ?? DEFAULT_VOICE;
-  const modelId = process.env.ELEVENLABS_MODEL_ID ?? DEFAULT_MODEL;
-  const stability = args.stability ?? DEFAULT_STABILITY;
+  // FK_NARRATE_STUB=1 proves the chain without spending credit, even with a key on disk.
+  const apiKey = process.env.FK_NARRATE_STUB === '1' ? null : resolveApiKey();
+  const voiceArg = args.voice ?? process.env.ELEVENLABS_VOICE_ID;
+  const voiceId = VOICES[voiceArg] ?? voiceArg ?? DEFAULT_VOICE;
+  const voiceName = Object.keys(VOICES).find((name) => VOICES[name] === voiceId) ?? null;
+  const stability = args.stability ?? VOICE_STABILITY[voiceName] ?? DEFAULT_STABILITY;
+  const modelId = process.env.ELEVENLABS_MODEL_ID ?? VOICE_MODEL[voiceName] ?? DEFAULT_MODEL;
+
+
   const mode = apiKey
     ? 'elevenlabs'
     : process.env.FK_NARRATE_TONE === '1'
       ? 'tone-stub'
       : 'silent-stub';
   console.log(
-    `[narrate] mode ${mode}${apiKey ? ` (voice ${voiceId}, stability ${stability})` : ''}`,
+    `[narrate] mode ${mode}${apiKey ? ` (voice ${voiceId}, model ${modelId}, stability ${stability})` : ''}`,
   );
+  const fkPoDir = resolveFkPoDir();
+  // --fresh buys a new take of unchanged text: the model reads it differently
+  // every call, and sometimes a different read is the point. The new take
+  // replaces the cached one.
+  const cacheDir = process.env.FK_TTS_CACHE ?? (fkPoDir ? join(fkPoDir, 'tts-cache') : null);
+  const speak = async (text, outPath) => {
+    const { alignment, cached } = await cachedSynthesize(
+      text,
+      outPath,
+      { apiKey, voiceId, modelId, stability },
+      { cacheDir, synth: synthesize, fresh: args.fresh },
+    );
+    if (cached) console.log(`[narrate] reused a take from ${cacheDir}, no credit spent`);
+    return alignment;
+  };
 
   for (const beat of beats) {
     if (!beat.id) {
@@ -392,12 +437,7 @@ if (isEntrypoint) {
   if (apiKey && !args.perBeat) {
     wholeAudio = join(audioDir, '_whole.mp3');
     try {
-      const alignment = await synthesize(spokenLines.join(JOIN), wholeAudio, {
-        apiKey,
-        voiceId,
-        modelId,
-        stability,
-      });
+      const alignment = await speak(spokenLines.join(JOIN), wholeAudio);
       if (!alignment) {
         console.log('[narrate] whole script returned no alignment; falling back to per line');
       } else {
@@ -443,16 +483,28 @@ if (isEntrypoint) {
         cutSegment(wholeAudio, audioPath, span.startSec, span.endSec, ffmpegBin);
         alignment = span.alignment;
       } else if (apiKey) {
-        alignment = await synthesize(line, audioPath, {
-          apiKey,
-          voiceId,
-          modelId,
-          stability,
-        });
+        alignment = await speak(line, audioPath);
         padSilence(audioPath, ffmpegBin);
       } else {
         writeStubAudio(audioPath, estimateDurationSec(line) + GAP_SEC, ffmpegBin, {
           tone: process.env.FK_NARRATE_TONE === '1',
+        });
+      }
+      const previous = beats[index - 1];
+      const leadInSec = !silent && (!previous || previous.kind === 'card') ? LEAD_IN_SEC : 0;
+      if (!silent && apiKey) {
+        const tight = tightenBeatAudio(audioPath, alignment, ffmpegBin, {
+          maxPause: MAX_PAUSE_SEC,
+          tailSec: GAP_SEC,
+          leadInSec,
+        });
+        alignment = tight.alignment;
+        if (tight.removedSec > 0.05) {
+          console.log(`[narrate] ${beat.id}: ${tight.removedSec.toFixed(2)}s of pause removed`);
+        }
+      } else if (leadInSec > 0) {
+        writeStubAudio(audioPath, estimateDurationSec(line) + GAP_SEC + leadInSec, ffmpegBin, {
+          tone: false,
         });
       }
     } catch (error) {
@@ -463,7 +515,14 @@ if (isEntrypoint) {
     // A beat may be held longer than its line takes to say. A card carrying
     // three words is unreadable if it leaves as soon as the voice stops.
     const spokenSec = silent ? 0 : measureDurationSec(audioPath, ffprobeBin);
-    const floor = beat.minSec ?? (beat.kind === 'card' ? CARD_MIN_SEC : 0);
+    // A card with no design renders as flows (Cards.tsx resolveDesign).
+    const cardFloor = DESIGN_MIN_SEC[beat.cardDesign ?? 'flows'] ?? CARD_MIN_SEC;
+    const isCard = beat.kind === 'card';
+    const wanted = beat.minSec ?? (isCard ? cardFloor : 0);
+    const floor = isCard ? wanted : Math.min(wanted, spokenSec + MAX_HOLD_SEC);
+    if (floor < wanted) {
+      console.log(`[narrate] ${beat.id}: minSec ${wanted}s capped to ${floor.toFixed(2)}s, the voice ends at ${spokenSec.toFixed(2)}s`);
+    }
     const durationSec = Math.max(spokenSec, floor);
     resolved.push({
       id: beat.id,
@@ -489,7 +548,17 @@ if (isEntrypoint) {
   const beatsJson = join(workDir, 'beats.json');
   writeFileSync(
     beatsJson,
-    JSON.stringify({ mode, meta: meta ?? {}, totalSec: cursorSec, beats: resolved }, null, 2),
+    JSON.stringify(
+      {
+        mode,
+        meta: meta ?? {},
+        voice: apiKey ? { name: voiceName, id: voiceId, model: modelId, stability } : null,
+        totalSec: cursorSec,
+        beats: resolved,
+      },
+      null,
+      2,
+    ),
     'utf8',
   );
 

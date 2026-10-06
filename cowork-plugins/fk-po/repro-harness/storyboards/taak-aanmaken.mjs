@@ -36,7 +36,9 @@ export const meta = {
   account: 'help',
 };
 
-const TAAK_NAAM = 'Kwartaalcijfers doornemen met de klant';
+// A task cannot be deleted, so every run leaves one behind. Change this name
+// when an earlier run's row would sit next to the new one in the list.
+const TAAK_NAAM = 'Q3-cijfers bespreken';
 
 // Two handles the app renders from the recording account's own data rather than
 // from anything this file controls: the assignee field shows the logged-in
@@ -44,7 +46,7 @@ const TAAK_NAAM = 'Kwartaalcijfers doornemen met de klant';
 // The defaults are the dev-stack account, so recording as the acceptance help
 // account means setting both, or the run hangs 30 seconds on a name that is
 // not on screen.
-const EIGEN_NAAM = process.env.FK_HELP_OWNER_NAME || 'Tim Koppers';
+const EIGEN_NAAM = process.env.FK_HELP_OWNER_NAME || 'Bram Peters';
 const COLLEGA_NAAM = process.env.FK_HELP_COLLEAGUE_NAME || 'Emma Jansen';
 // Only needed when the account is in more than one company, which is every
 // account on a preview: the seeder puts all demo members in both so company
@@ -71,10 +73,9 @@ const TAAK_CEL = `[role="gridcell"]:has-text("${TAAK_NAAM}")`;
 // element covers the whole viewport, and since a focus box only supplies the
 // camera a centre point, aiming at it points the camera at the middle of the
 // page. Its two children are the full-viewport overlay and then the panel, and
-// it is the second one: measured at x1180 y49, 720x918, which is what
-// SideModal's own h-[85vh] w-[clamp(400px,40vw,720px)] and -translate-x-5 work
-// out to at 1920x1080. Structural rather than semantic, because the panel
-// carries only utility classes and no test id.
+// it is the second one, sized by SideModal's own h-[85vh]
+// w-[clamp(400px,40vw,720px)]. Structural rather than semantic, because the
+// panel carries only utility classes and no test id.
 //
 // Beats inside the panel aim at this rather than at their own field: the fields
 // sit at the page's right edge, so at camera.maxScale the frame cut the panel
@@ -85,6 +86,18 @@ const TAAK_PANEEL = '[role="dialog"] > div:nth-child(2)';
 
 export async function setup({ page, run }) {
   await run.login({ company: COMPANY_NAAM });
+  // The task goes to a colleague, so "Mijn taken" never shows it. The scope is
+  // a saved per-user preference; switch it to the office-wide list off camera.
+  const home = page.url();
+  await page.goto('/tasks');
+  const scope = page.locator('[data-testid="list-view-switcher-toggle"]');
+  await scope.waitFor({ state: 'visible', timeout: 30_000 });
+  if ((await scope.innerText()).trim() !== 'Taken') {
+    await scope.click();
+    await page.getByRole('menuitem', { name: 'Taken', exact: true }).or(page.locator('text="Taken"').last()).first().click();
+    await page.waitForTimeout(1500);
+  }
+  await page.goto(home);
   // The dashboard resolves its route before it paints its widgets, so without
   // this the first beat films an empty window: measured, the plus button is not
   // in the DOM until seconds after /dashboard has loaded.
@@ -110,12 +123,8 @@ export const beats = [
   {
     id: 'kaart-start',
     kind: 'card',
-    // Tims keuze op 2026-08-25: taakregels, niet de flowlijn. Een flowlijn
-    // spreekt tegen wat deze video uitlegt, namelijk dat een losse taak naast
-    // de vaste flows bestaat.
-    cardDesign: 'deadlines',
-    // No eyebrow text on this design: the 01 badge already says which chapter
-    // it is, and "Hoofdstuk 01" beside it says it twice.
+    // Tim's bumpers of 2026-10-02 replace the deadlines card.
+    cardDesign: 'balken',
     cardTitle: 'Een losse taak aanmaken',
     cardSubtitle: 'Wat je vastlegt, aan wie je hem geeft, en wanneer hij af moet.',
     cardStep: 1,
@@ -174,22 +183,23 @@ export const beats = [
     id: 'aanmaken',
     narration: 'Klik op Taak aanmaken om hem op te slaan.',
     action: ({ run }) => run.click(AANMAKEN, 'Taak aanmaken'),
-    focus: TAAK_PANEEL,
+    // On the button itself, and no minSec: the panel closes on the click, so a
+    // longer hold only filmed an empty dashboard.
+    focus: AANMAKEN,
     preRollSec: 1.6,
-    minSec: 5.0,
   },
   {
     id: 'kaart-klaar',
     kind: 'card',
-    cardDesign: 'flows',
-    cardEyebrow: 'Klaar',
+    // The stepper shows chapter 1 done and this one active.
+    cardDesign: 'stappen',
     cardTitle: 'Staat in je lijst',
     cardSubtitle: 'De taak telt meteen mee in je overzicht en in dat van je collega.',
     cardStep: 2,
   },
   {
     id: 'naar-takenlijst',
-    narration: 'De taak staat nu in je takenlijst, tussen je andere werk.',
+    narration: 'De taak staat nu in de takenlijst van het kantoor, tussen het andere werk.',
     // Wide on purpose: the viewer has just been away from the app on a card, so
     // the whole window comes back before anything moves. Then the pointer
     // travels to the sidebar and opens the list.
@@ -218,7 +228,9 @@ export const beats = [
       await page.locator(TAAK_PANEEL).first().waitFor({ state: 'visible', timeout: 20_000 });
       await page.waitForTimeout(800);
     },
-    focus: TAAK_PANEEL,
+    // Wide: zoomed in, the panel at the right edge was cut off. At the 1680
+    // recording width the whole window is readable.
+    wide: true,
     minSec: 7.0,
   },
 ];

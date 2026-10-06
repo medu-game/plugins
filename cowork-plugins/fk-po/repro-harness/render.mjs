@@ -5,8 +5,9 @@
 //
 // Reads capture.json + events.jsonl (from record-repro.mjs), builds the
 // ReproVideo props, stages raw.mp4 into remotion/public/capture.mp4, and
-// renders the annotated Full HD MP4 with the Remotion CLI (using Playwright's
-// Chromium so Remotion never downloads its own headless shell).
+// renders the annotated Full HD MP4 with the Remotion CLI. Which browser it
+// renders through, and why that is not a fixed answer, lives in
+// render-browser.mjs.
 //
 // Exit codes:
 //   0  success
@@ -26,6 +27,8 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildProps, parseEvents } from './events.mjs';
+import { renderWithBrowserFallback } from './render-browser.mjs';
+import { assertInstallMatchesPlatform } from './preflight.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -53,6 +56,8 @@ if (args.help || !args.workDir || !args.title) {
   );
   process.exit(args.help ? 0 : 1);
 }
+
+assertInstallMatchesPlatform('render');
 if (args.ticket && !/^FK-\d+$/.test(args.ticket)) {
   console.error(`[render] --ticket must look like FK-123 (got "${args.ticket}")`);
   process.exit(1);
@@ -121,29 +126,24 @@ const stamp = new Date()
   .slice(0, 19);
 const mp4Path = join(outDir, `bug-${slug}-${stamp}.mp4`);
 
-// Remotion renders through a browser; reuse Playwright's Chromium.
-const { chromium } = await import('playwright');
-const browserExecutable = chromium.executablePath();
-
 console.log(`[render] props   : ${propsPath}`);
-console.log(`[render] browser : ${browserExecutable}`);
 
-const render = spawnSync(
-  'npx',
-  [
+const render = await renderWithBrowserFallback({
+  args: [
     'remotion',
     'render',
     'remotion/index.ts',
     'ReproVideo',
     mp4Path,
     `--props=${propsPath}`,
-    `--browser-executable=${browserExecutable}`,
     // The public dir lives inside remotion/, not at the package root.
     `--public-dir=${publicDir}`,
     '--concurrency=2',
   ],
-  { cwd: here, stdio: ['ignore', 'inherit', 'pipe'] },
-);
+  spawnOptions: { cwd: here, stdio: ['ignore', 'inherit', 'pipe'] },
+  log: (msg) => console.log(`[render] ${msg}`),
+  spawnSync,
+});
 if (render.status !== 0) {
   const stderr = render.stderr?.toString() ?? '';
   console.error('[render] remotion render failed:');

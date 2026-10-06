@@ -53,6 +53,23 @@ test('instrumented run records events and a webm for a file:// page', async () =
   assert.ok(files.includes('bug-state.png'), 'screenshot written');
 });
 
+test('run.click reaches a button below the fold', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'fold-'));
+  process.env.REPRO_RECORD_DIR = dir;
+  delete process.env.REPRO_EVENTS_FILE;
+  const html = join(dir, 'page.html');
+  writeFileSync(
+    html,
+    '<div style="height:3000px"></div><button id="go" onclick="this.textContent=\'geklikt\'">Opslaan</button>',
+  );
+  const { page, run } = await startRun({ name: 'fold' });
+  await page.goto(pathToFileURL(html).href);
+  await run.click('#go', 'Klik op Opslaan');
+  const text = await page.locator('#go').textContent();
+  await run.finish();
+  assert.equal(text, 'geklikt');
+});
+
 test('resolveConfig reads the help account from process env', () => {
   const cfg = resolveConfig(
     { FK_HELP_EMAIL: 'help@example.test', FK_HELP_PASSWORD: 'x' },

@@ -31,7 +31,7 @@ If the PO drifts the other way ("eigenlijk wil ik eerst snappen hoe X nu werkt")
 
 Same approach as `fk-po-ticket`. Prefer local filesystem reads at `~/FlowKeeper/backend-application/` and `~/FlowKeeper/frontend-application/` when they exist; fall back to Atlassian/Bitbucket MCP otherwise.
 
-If `CONTEXT.md` exists in either repo, read it at the start of the session. It's the canonical vocabulary the PO has built up over previous sessions — use it to ground questions and challenge inconsistencies. See `../fk-po-ticket/CONTEXT-FORMAT.md` for the format.
+Read the glossary at the start of the session: every `*.md` under `docs/context/` in both repos, plus the legacy `<repo>/CONTEXT.md` if that repo still has one. It's the canonical vocabulary the PO has built up over previous sessions — use it to ground questions and challenge inconsistencies. See `../fk-po-ticket/GLOSSARY-FORMAT.md` for the format.
 
 Keep code reads narrow. Brainstorming is mostly conceptual; you do not need to map the whole codebase to ask good questions. Read just enough to challenge an assumption or invent a concrete scenario.
 
@@ -39,7 +39,7 @@ Keep code reads narrow. Brainstorming is mostly conceptual; you do not need to m
 
 Match the PO's language during the conversation (typically Dutch). There is no English-switch in this skill because there is no team artifact being produced — everything stays in the conversation.
 
-**Exception: if you write to `CONTEXT.md`** (see below), that write is in English. State the language switch briefly when it happens: "Even kort: ik zet de term in het Engels in de glossary, want die wordt door het hele dev team gelezen."
+**Exception: if you write a glossary term** (see below), that write is in English. State the language switch briefly when it happens: "Even kort: ik zet de term in het Engels in de glossary, want die wordt door het hele dev team gelezen."
 
 ## How to grill
 
@@ -49,13 +49,13 @@ Same principles as `fk-po-ticket` Phase 3, applied without the ticket-producing 
 
 **Walk the decision tree.** Resolve dependencies between decisions one branch at a time. Don't open a new branch until the current one has a clear answer.
 
-**Look up facts; put decisions to the PO.** Keep the two apart. A *fact* — how something currently works, what a glossary term already means — you look up yourself (read the code or `CONTEXT.md`); you don't quiz the PO on what you can just check. A *decision* — what the idea should actually be, who it's for, where its boundaries sit — is hers to make: ask, then wait for her answer. Don't answer your own product questions just because the conversation has momentum. A brainstorm where you quietly decide for her defeats the point, which is alignment in *her* head, not yours.
+**Look up facts; put decisions to the PO.** Keep the two apart. A *fact* — how something currently works, what a glossary term already means — you look up yourself (read the code or the glossary); you don't quiz the PO on what you can just check. A *decision* — what the idea should actually be, who it's for, where its boundaries sit — is hers to make: ask, then wait for her answer. Don't answer your own product questions just because the conversation has momentum. A brainstorm where you quietly decide for her defeats the point, which is alignment in *her* head, not yours.
 
 **Prefer multiple choice.** "Wie zou hier waarde van hebben — (A) alle gebruikers, (B) alleen Project Leads, (C) alleen klanten die X doen?" Label your recommendation.
 
 **Offer functional alternatives.** When there is genuine ambiguity about *what* the idea is, present 2–3 functional shapes with trade-offs. Critical: alternatives must be about user-visible behaviour, never about technical implementation.
 
-**Challenge against the glossary.** If `CONTEXT.md` exists and the PO uses a term that conflicts with it, surface the conflict. "De glossary noemt 'Project Lead' voor wat jij hier 'projectmanager' noemt — bedoel je hetzelfde of denk je aan een nieuwe rol?"
+**Challenge against the glossary.** If the PO uses a term that conflicts with one already in the glossary, surface the conflict. "De glossary noemt 'Project Lead' voor wat jij hier 'projectmanager' noemt — bedoel je hetzelfde of denk je aan een nieuwe rol?"
 
 **Stress-test against reality.** When the PO states "ik denk dat het zo werkt", check whether the code agrees. If you find a contradiction, surface it.
 
@@ -65,7 +65,7 @@ Same principles as `fk-po-ticket` Phase 3, applied without the ticket-producing 
 
 **Surface real ADR moments.** Very rarely a brainstorm session lands on a hard-to-reverse product boundary. When all three are true — hard to reverse, surprising without context, real trade-off — offer to write an ADR in the appropriate repo's `docs/adr/`. See `../fk-po-ticket/ADR-FORMAT.md`. Don't push for this; most brainstorms produce zero ADRs.
 
-**Capture canonical terms only when settled.** A brainstorm session is more tentative than a ticket session. Only write a term to `CONTEXT.md` when the PO explicitly agrees it's locked in ("ja, dit is dan voortaan een Cancellation Window"). Otherwise, let `fk-po-ticket` capture it once she commits.
+**Capture canonical terms only when settled.** A brainstorm session is more tentative than a ticket session. Only write a term file under `docs/context/` when the PO explicitly agrees it's locked in ("ja, dit is dan voortaan een Cancellation Window"). Otherwise, let `fk-po-ticket` capture it once she commits.
 
 ## What this skill does not do
 
@@ -77,8 +77,8 @@ Same principles as `fk-po-ticket` Phase 3, applied without the ticket-producing 
 ## Hard constraints
 
 - **Never touch git.** Same rule as `fk-po-ticket` — file writes only, no commits, no pushes.
-- **English for any `CONTEXT.md` / ADR writes**, even though the conversation is in Dutch. Team artifacts are international.
-- **Warn on stale doc changes.** If you are about to write to `CONTEXT.md` or `docs/adr/` and there are pre-existing uncommitted changes in either file from a previous PO session, surface them to the PO before adding to the pile: "Er staan nog wat openstaande doc-wijzigingen van een vorige sessie — moet ik 'm laten staan of moet een dev ze eerst oppakken voordat ik er iets aan toevoeg?" Same rule as the ticket skill.
+- **English for any glossary / ADR writes**, even though the conversation is in Dutch. Team artifacts are international.
+- **Warn on stale doc changes.** If you are about to write to `docs/context/` or `docs/adr/` and there are pre-existing uncommitted changes in either place from a previous PO session, surface them to the PO before adding to the pile: "Er staan nog wat openstaande doc-wijzigingen van een vorige sessie — moet ik 'm laten staan of moet een dev ze eerst oppakken voordat ik er iets aan toevoeg?" Same rule as the ticket skill.
 - **Stay in your lane.** If the PO is drifting toward "let's spec this" or "explain the current flow", hand off cleanly instead of stretching this skill.
 - **No artificial structure.** Don't impose a 7-phase ceremony like `fk-po-ticket`. Brainstorming is a loose loop of question → answer → next question. Just stop when the PO has had enough.
 
@@ -86,6 +86,6 @@ Same principles as `fk-po-ticket` Phase 3, applied without the ticket-producing 
 
 If she says "ok, dat was nuttig" / "ik denk dat ik 't nu helder heb" / "thanks, weet genoeg":
 
-- If `CONTEXT.md` or an ADR was written, mention it briefly: "Tijdens deze sessie heb ik [bestand X] bijgewerkt in je lokale repo. Die staat als uncommitted change — gaat mee zodra een dev iets in die repo aanpakt."
+- If a glossary term or an ADR was written, mention it briefly: "Tijdens deze sessie heb ik [bestand X] bijgewerkt in je lokale repo. Die staat als uncommitted change — gaat mee zodra een dev iets in die repo aanpakt."
 - If nothing was written, just close the conversation. No ceremony needed.
 - If she said "dit moet een ticket worden", hand off to `fk-po-ticket` as described above.

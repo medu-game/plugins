@@ -11,16 +11,9 @@
 
 export const TWEAKS = {
   intro: {
-    /** Flowkeeper's eigen logo-animatie. 'intro-dark.mp4' of 'intro-light.mp4'.
-     *  Beide 1920x1080, 30fps, 4,5 seconden, zonder geluid. Wissel je van clip
-     *  met een andere lengte, pas dan INTRO_CLIP_SEC in remotion/timing.mjs
-     *  aan, anders lopen de ondertitels scheef. */
-    clip: 'intro-light.mp4',
-    /** Het uitgesneden logo van datzelfde clipframe, met doorzichtige
-     *  achtergrond, zodat het over wit kan bewegen. Gemaakt uit de clip zelf,
-     *  niet nagebouwd: de overgang is daardoor een knip tussen dezelfde
-     *  pixels in plaats van een kruisfade. */
-    lockup: 'intro-lockup-light.png',
+    /** De logo-animatie is geen filmpje meer maar remotion/LogoBuild.tsx. De
+     *  beats staan daar in BEATS; verander je de lengte, pas dan INTRO_CLIP_SEC
+     *  in remotion/timing.mjs aan, anders lopen de ondertitels scheef. */
     /** Hoe lang het logo erover doet om naar zijn plek in het design te
      *  schuiven en te verkleinen. */
     moveSec: 0.6,
@@ -56,19 +49,14 @@ export const TWEAKS = {
     bgTo: '#FFFFFF',
   },
 
-  outro: {
-    /** De intro achterstevoren en iets sneller: het logo pakt zichzelf weer
-     *  uit. Geen titel, geen uitleg, geen geluid. Gemaakt uit intro-light.mp4
-     *  met ffmpeg; wissel je van clip, pas dan OUTRO_SEC in
-     *  remotion/timing.mjs aan naar wat ffprobe zegt. */
-    clip: 'outro-light.mp4',
-  },
-
   camera: {
     /** Hoe ver de camera inzoomt op het element waar de stem het over heeft.
      *  Onder 1.15 past het venster niet meer beeldvullend en zie je de
-     *  achtergrond langs de randen. 1.0 zet de camera helemaal stil. */
-    maxScale: 1.36,
+     *  achtergrond langs de randen. 1.0 zet de camera helemaal stil.
+     *  Melissa koos 1.0 op 2026-09-13: bij schermen vol tabellen was niet te
+     *  zien waarop werd ingezoomd, en een klik die het scherm van vorm liet
+     *  veranderen sneed de linkerrand af. Tim bevestigde dat op 2026-10-06. */
+    maxScale: 1.0,
     /** Basisduur van een cameraverplaatsing. Een verre sprong duurt vanzelf
      *  langer, tot maximaal 2,2 keer deze waarde. */
     easeSec: 0.9,
@@ -121,6 +109,13 @@ export const TWEAKS = {
      *  bestand zelf, gemaakt door make-intro-music.mjs; hier staat alleen nog
      *  het volume. Op null zetten maakt de intro stil. */
     introMusic: { file: 'intro-music.mp3', volume: 0.35 } as
+      | { file: string; volume: number }
+      | null,
+
+    /** Het slotakkoord van hetzelfde muziekje onder de outro, waar het logo
+     *  zichzelf weer uit elkaar haalt. Gemaakt door make-intro-music.mjs
+     *  --outro. Op null zetten maakt de outro stil. */
+    outroMusic: { file: 'outro-music.mp3', volume: 0.35 } as
       | { file: string; volume: number }
       | null,
 

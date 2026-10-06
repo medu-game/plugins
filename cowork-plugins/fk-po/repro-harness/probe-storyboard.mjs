@@ -17,7 +17,7 @@
 
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { loadAppEnv, startRun } from './helpers.mjs';
+import { HELP_VIEWPORT, loadAppEnv, startRun } from './helpers.mjs';
 import { dryRunStoryboard, validateStoryboard } from './storyboard.mjs';
 
 // Before the storyboard is imported, not after: a storyboard reads the keys it
@@ -54,6 +54,7 @@ if (!check.ok) {
 const { page, run } = await startRun({
   name: `probe-${meta?.slug ?? 'help'}`,
   account: meta?.account ?? 'acc',
+  viewport: HELP_VIEWPORT,
 });
 
 let report;

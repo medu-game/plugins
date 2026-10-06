@@ -14,7 +14,6 @@ import {
   AbsoluteFill,
   Easing,
   Html5Audio,
-  Img,
   OffthreadVideo,
   Sequence,
   interpolate,
@@ -22,9 +21,8 @@ import {
   staticFile,
   useCurrentFrame,
 } from 'remotion';
-import { loadFont as loadDisplay } from '@remotion/google-fonts/HankenGrotesk';
-import { loadFont as loadBody } from '@remotion/google-fonts/Inter';
-import { BRAND, PAGE_SCALE, STUDIO_BACKDROP, WINDOW } from './brand';
+import { BODY, DISPLAY } from './fonts';
+import { BRAND, STUDIO_BACKDROP, WINDOW } from './brand';
 import {
   FPS,
   HEIGHT,
@@ -35,10 +33,8 @@ import {
   WIDTH,
 } from './constants';
 import { DesignCard, type CardDesign, type CardVariant } from './Cards';
+import { LOCKUP_SETTLED, LogoBuild } from './LogoBuild';
 import { TWEAKS } from './tweaks';
-
-const { fontFamily: DISPLAY } = loadDisplay();
-const { fontFamily: BODY } = loadBody();
 
 export type HelpBeat = {
   id: string;
@@ -69,6 +65,8 @@ export type HelpVideoProps = {
   captureDurationSec: number;
   beats: HelpBeat[];
   clicks: { atSec: number; x: number; y: number }[];
+  /** The CSS viewport the capture was recorded at; 1920x1080 when absent. */
+  page?: { width: number; height: number };
 };
 
 export const helpVideoDefaultProps: HelpVideoProps = {
@@ -103,23 +101,24 @@ function activeBeat(beats: HelpBeat[], sec: number): HelpBeat | null {
   );
 }
 
-// Where the lockup sits before and after the move. Both boxes were measured,
-// not estimated: the bounding box of the non-background pixels in
-// intro-light.mp4 at 4.0s, and the same lockup in Tim's flowkeeper_intro.png.
-const LOCKUP_FROM = { cx: 952, cy: 540, width: 803 };
+// Where the lockup sits before and after the move. LOCKUP_TO was measured in
+// Tim's flowkeeper_intro.png; LOCKUP_FROM is now LogoBuild's own settled box,
+// which is the same 803 wide, so the design's spacing is unchanged.
+const LOCKUP_FROM = LOCKUP_SETTLED;
 const LOCKUP_TO = { cx: 960, cy: 287.5, width: 561 };
 const LOCKUP_SCALE = LOCKUP_TO.width / LOCKUP_FROM.width;
 
 /**
- * The brand intro is Flowkeeper's own logo animation, not a rebuild of it.
+ * The brand intro is the logo animation, rebuilt in LogoBuild.
  *
- * The clip fades its logo away over the last 0.4s, which is exactly the frame
- * the design builds on, so the clip stops at INTRO_CLIP_SEC and a cut-out still
- * of that same frame takes over. The still sits underneath at identical
- * geometry, so the handover is a cut between the same pixels rather than a
- * dissolve that could show a seam. It then rises and shrinks into the position
- * the design puts it in, while the ground fades from the clip's grey to the
- * design's white: two changes at once, each covering for the other.
+ * It used to be a clip plus a still cut out of its own last frame, because the
+ * clip's logo could not be rebuilt faithfully. It can now: check-logo-mark.mjs
+ * proves the mark against the app's own asset. So the clip, the still and the
+ * cut between them are all gone, and with them the seam risk that arrangement
+ * existed to avoid. The build simply holds its settled lockup from
+ * INTRO_CLIP_SEC on, and that lockup then rises and shrinks into the position
+ * the design puts it in while the ground fades from grey to white: two changes
+ * at once, each covering for the other.
  */
 const IntroCard: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => {
   const sec = useCurrentFrame() / FPS;
@@ -154,23 +153,16 @@ const IntroCard: React.FC<{ title: string; subtitle: string }> = ({ title, subti
         ),
       }}
     >
-      <Img
-        src={staticFile(TWEAKS.intro.lockup)}
+      <div
         style={{
-          width: WIDTH,
-          height: HEIGHT,
+          position: 'absolute',
+          inset: 0,
           transformOrigin: `${LOCKUP_FROM.cx}px ${LOCKUP_FROM.cy}px`,
           transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
         }}
-      />
-      {sec < INTRO_CLIP_SEC ? (
-        <AbsoluteFill>
-          <OffthreadVideo
-            src={staticFile(TWEAKS.intro.clip)}
-            style={{ width: WIDTH, height: HEIGHT }}
-          />
-        </AbsoluteFill>
-      ) : null}
+      >
+        <LogoBuild sec={sec} />
+      </div>
 
       <div
         style={{
@@ -236,18 +228,24 @@ const IntroCard: React.FC<{ title: string; subtitle: string }> = ({ title, subti
 
 /**
  * The intro in reverse: the logo takes itself apart. No title, no subtitle, no
- * sound, which is Tim's call on 2026-08-25. The clip is prepared by ffmpeg
- * rather than animated here, for the same reason the intro is a clip: this is
- * Flowkeeper's own logo animation and rebuilding it by hand went wrong twice.
+ * sound, which is Tim's call on 2026-08-25.
+ *
+ * It used to be a second mp4 that ffmpeg had trimmed and reversed. Running the
+ * build backwards gives the same thing without the file, and without the trap
+ * that file carried: reversing the untrimmed clip turned its fade-out into a
+ * fade-in, so the outro opened on nothing. OUTRO_SEC is kept at what ffprobe
+ * reported for that file, so the speed-up is INTRO_CLIP_SEC / OUTRO_SEC rather
+ * than a round number.
  */
-const OutroCard: React.FC = () => (
-  <AbsoluteFill style={{ backgroundColor: TWEAKS.intro.bgFrom }}>
-    <OffthreadVideo
-      src={staticFile(TWEAKS.outro.clip)}
-      style={{ width: WIDTH, height: HEIGHT }}
-    />
-  </AbsoluteFill>
-);
+const OutroCard: React.FC = () => {
+  const sec = useCurrentFrame() / FPS;
+  const back = INTRO_CLIP_SEC * (1 - sec / OUTRO_SEC);
+  return (
+    <AbsoluteFill style={{ backgroundColor: TWEAKS.intro.bgFrom }}>
+      <LogoBuild sec={back} id="fk-outro" />
+    </AbsoluteFill>
+  );
+};
 
 /** A designed full-screen statement between two screen beats. */
 /**
@@ -266,7 +264,7 @@ const OutroCard: React.FC = () => (
  * also gives the designs a clock that starts when the card appears, which is
  * what every timing inside them is relative to.
  */
-const CardBeat: React.FC<{ beat: HelpBeat }> = ({ beat }) => (
+const CardBeat: React.FC<{ beat: HelpBeat; total: number }> = ({ beat, total }) => (
   <AbsoluteFill>
     <DesignCard
       durationSec={beat.durationSec}
@@ -277,6 +275,7 @@ const CardBeat: React.FC<{ beat: HelpBeat }> = ({ beat }) => (
         title: beat.cardTitle ?? beat.narration,
         subtitle: beat.cardSubtitle ?? null,
         step: beat.cardStep ?? null,
+        total,
       }}
     />
   </AbsoluteFill>
@@ -322,8 +321,8 @@ const NarrationBar: React.FC<{ beats: HelpBeat[] }> = ({ beats }) => {
 
 /**
  * Arrow cursor with a green click ripple. Coordinates arrive as page pixels
- * and are drawn in an unscaled 1920x1080 layer that the caller scales, so this
- * component must never apply PAGE_SCALE itself.
+ * and are drawn in an unscaled page-sized layer that the caller scales, so this
+ * component must never apply the page scale itself.
  */
 const Cursor: React.FC<{ clicks: HelpVideoProps['clicks'] }> = ({ clicks }) => {
   const sec = useCurrentFrame() / FPS;
@@ -411,13 +410,15 @@ const Cursor: React.FC<{ clicks: HelpVideoProps['clicks'] }> = ({ clicks }) => {
 const Stage: React.FC<HelpVideoProps> = (props) => {
   const sec = useCurrentFrame() / FPS;
 
+  const page = props.page ?? { width: WIDTH, height: HEIGHT };
+  const pageScale = WINDOW.width / page.width;
   const centre = { x: WINDOW.x + WINDOW.width / 2, y: PAGE_TOP + WINDOW.height / 2 };
   const targets = props.beats
     .filter((b) => b.kind !== 'card' && b.focus)
     .map((b) => ({
       atSec: b.startSec,
-      x: WINDOW.x + (b.focus!.x + b.focus!.width / 2) * PAGE_SCALE,
-      y: PAGE_TOP + (b.focus!.y + b.focus!.height / 2) * PAGE_SCALE,
+      x: WINDOW.x + (b.focus!.x + b.focus!.width / 2) * pageScale,
+      y: PAGE_TOP + (b.focus!.y + b.focus!.height / 2) * pageScale,
     }));
 
   let focusX = centre.x;
@@ -459,9 +460,19 @@ const Stage: React.FC<HelpVideoProps> = (props) => {
     // viewer has just been away from the app and needs to see where they are
     // before anything moves. Eased in and out over CAM_EASE_SEC so it reads as
     // the camera pulling back rather than a cut.
-    for (const beat of props.beats.filter((b) => b.wide)) {
+    for (const [index, beat] of props.beats.entries()) {
+      if (!beat.wide) continue;
+      // Easing back in only makes sense when the app stays on screen. Before a
+      // card or the end of the capture it zoomed in and straight back out.
+      // A card covers the cut back in, so the wide shot holds until it ends.
+      const next = props.beats[index + 1];
+      const easesOut = next !== undefined && next.kind !== 'card';
       const from = beat.startSec;
-      const to = beat.startSec + beat.durationSec;
+      const to = !next
+        ? Infinity
+        : easesOut
+          ? beat.startSec + beat.durationSec
+          : next.startSec + next.durationSec;
       if (sec < from - CAM_EASE_SEC || sec > to) continue;
       const q =
         sec < from
@@ -469,7 +480,7 @@ const Stage: React.FC<HelpVideoProps> = (props) => {
               ...CLAMP,
               easing: Easing.inOut(Easing.cubic),
             })
-          : sec > to - CAM_EASE_SEC
+          : easesOut && sec > to - CAM_EASE_SEC
             ? interpolate(sec, [to - CAM_EASE_SEC, to], [1, 0], {
                 ...CLAMP,
                 easing: Easing.inOut(Easing.cubic),
@@ -571,10 +582,10 @@ const Stage: React.FC<HelpVideoProps> = (props) => {
             position: 'absolute',
             left: WINDOW.x,
             top: PAGE_TOP,
-            width: WIDTH,
-            height: HEIGHT,
+            width: page.width,
+            height: page.height,
             transformOrigin: '0 0',
-            transform: `scale(${PAGE_SCALE})`,
+            transform: `scale(${pageScale})`,
           }}
         >
           <Cursor clicks={props.clicks} />
@@ -616,10 +627,14 @@ const IntroMusic: React.FC<{ file: string; volume: number }> = ({ file, volume }
   <Html5Audio src={staticFile(file)} volume={volume} />
 );
 
+/** The same piece's arrival chord under the logo taking itself apart. */
+const OutroMusic = IntroMusic;
+
 export const HelpVideo: React.FC<HelpVideoProps> = (props) => {
   const introFrames = Math.round(INTRO_SEC * FPS);
   const captureFrames = Math.max(1, Math.round(props.captureDurationSec * FPS));
   const cardBeats = props.beats.filter((b) => b.kind === 'card');
+  const chapters = Math.max(1, ...cardBeats.map((b) => b.cardStep ?? 1));
   const cardCue = TWEAKS.audio.cardCue;
 
   return (
@@ -643,7 +658,7 @@ export const HelpVideo: React.FC<HelpVideoProps> = (props) => {
           from={introFrames + Math.round(beat.startSec * FPS)}
           durationInFrames={Math.max(1, Math.round(beat.durationSec * FPS))}
         >
-          <CardBeat beat={beat} />
+          <CardBeat beat={beat} total={chapters} />
         </Sequence>
       ))}
 
@@ -683,6 +698,11 @@ export const HelpVideo: React.FC<HelpVideoProps> = (props) => {
       <Sequence from={introFrames + captureFrames} durationInFrames={Math.round(OUTRO_SEC * FPS)}>
         <OutroCard />
       </Sequence>
+      {TWEAKS.audio.outroMusic ? (
+        <Sequence from={introFrames + captureFrames} durationInFrames={Math.round(OUTRO_SEC * FPS)}>
+          <OutroMusic {...TWEAKS.audio.outroMusic} />
+        </Sequence>
+      ) : null}
 
       {TWEAKS.progressBar.show ? (
         <ProgressBar totalSec={INTRO_SEC + props.captureDurationSec + OUTRO_SEC} />
