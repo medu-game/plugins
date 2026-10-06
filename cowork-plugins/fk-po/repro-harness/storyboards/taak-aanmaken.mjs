@@ -126,7 +126,7 @@ export const beats = [
     // Tim's bumpers of 2026-10-02 replace the deadlines card.
     cardDesign: 'balken',
     cardTitle: 'Een losse taak aanmaken',
-    cardSubtitle: 'Wat je vastlegt, aan wie je hem geeft, en wanneer hij af moet.',
+    cardSubtitle: 'Wat je vastlegt, aan wie je hem geeft en wanneer hij af moet.',
     cardStep: 1,
   },
   {

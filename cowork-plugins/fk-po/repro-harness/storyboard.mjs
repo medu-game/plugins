@@ -62,8 +62,14 @@ const EM_DASH = '—';
 export function validateStoryboard(beats, meta) {
   const errors = [];
   const noEmDash = (where, value) => {
-    if (typeof value === 'string' && value.includes(EM_DASH)) {
+    if (typeof value !== 'string') return;
+    if (value.includes(EM_DASH)) {
       errors.push(`${where}: em dash is not allowed in user-facing copy (FE-COPY-1)`);
+    }
+    // English puts a comma before "and"; Dutch does not, and the voice turns the
+    // comma into an audible pause (Melissa, 2026-10-06).
+    if (/,\s+en\b/i.test(value)) {
+      errors.push(`${where}: no comma before "en" in Dutch copy`);
     }
   };
 
@@ -335,7 +341,13 @@ export function buildHelpProps(events, narration, focus, meta) {
     title: meta.title,
     subtitle: meta.subtitle ?? '',
     captureStartSec: offsetSec,
-    captureDurationSec: (last?.t ?? 0) / 1000 - offsetSec,
+    // Ends with the last beat, not with the recording: runStoryboard records
+    // TAIL_PAD_SEC past it as headroom, and in the edit that showed the app
+    // again between a closing card and the outro (Melissa, 2026-09-13).
+    captureDurationSec:
+      beats.length > 0
+        ? beats[beats.length - 1].startSec + beats[beats.length - 1].durationSec
+        : (last?.t ?? 0) / 1000 - offsetSec,
     beats,
     clicks: events
       .filter((e) => e.kind === 'click' && e.t / 1000 >= offsetSec)

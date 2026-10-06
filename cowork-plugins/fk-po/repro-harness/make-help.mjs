@@ -61,6 +61,25 @@ if (dirty.status === 0 && dirty.stdout.trim()) {
   console.warn('[make] see melissa-setup.md, "Wat doen bij foutmeldingen", before recording.');
 }
 
+// The daily pull runs at 08:00 on weekdays; a fix pushed later that day, or a
+// pull that failed, leaves her recording with yesterday's harness without a
+// sign. A bounded fetch, so being offline costs seconds and not the run.
+const fetched = spawnSync('git', ['-C', here, 'fetch', '--quiet', 'origin', 'main'], {
+  encoding: 'utf8',
+  timeout: 20_000,
+  env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+});
+if (fetched.status === 0) {
+  const behind = spawnSync('git', ['-C', here, 'rev-list', '--count', 'HEAD..FETCH_HEAD'], { encoding: 'utf8' });
+  const count = Number(behind.stdout?.trim() ?? 0);
+  if (count > 0) {
+    console.warn(`[make] WARNING: the harness is ${count} commit(s) behind Bitbucket. Update it first:`);
+    console.warn(`  git -C "${here}" pull --ff-only`);
+  }
+} else {
+  console.warn('[make] could not check Bitbucket for a newer harness; continuing with this one');
+}
+
 const { beats, meta } = await import(pathToFileURL(storyboard).href);
 const check = validateStoryboard(beats, meta);
 if (!check.ok) {

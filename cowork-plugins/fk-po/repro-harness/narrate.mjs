@@ -65,6 +65,11 @@ const VOICE_MODEL = { fenna: 'eleven_v3' };
 // arrive too fast on top of each other; this is the breath between them, and it
 // is added here rather than asked of the model so it is the same every run.
 const GAP_SEC = 0.45;
+// Audio kept past a line's last character. alignment.endSec marks when the
+// character is spoken, not when it has died away; on an expressive voice the
+// cut landed with the word still at -25 dB and sounded clipped (Melissa,
+// measured on Fenna 2026-09-13). Never runs into the next line.
+const TAIL_SEC = 0.22;
 // One request for the whole script, then cut. Synthesizing line by line gave
 // each line its own read: same voice id, audibly different delivery, because
 // the model has no context beyond the sentence it is given. Set --per-beat to
@@ -455,6 +460,10 @@ if (isEntrypoint) {
             },
           }));
           let next = 0;
+          for (const [k, span] of rebased.entries()) {
+            const nextStart = rebased[k + 1]?.startSec ?? Infinity;
+            span.tailSec = Math.min(span.endSec + TAIL_SEC, nextStart);
+          }
           spans = spoken.map((line) => (line === null ? null : rebased[next++]));
           console.log(`[narrate] one take, ${located.length} spoken lines cut from it`);
         } else {
@@ -480,7 +489,7 @@ if (isEntrypoint) {
         // is nothing to accidentally play at zero volume.
       } else if (spans) {
         const span = spans[index];
-        cutSegment(wholeAudio, audioPath, span.startSec, span.endSec, ffmpegBin);
+        cutSegment(wholeAudio, audioPath, span.startSec, span.tailSec, ffmpegBin);
         alignment = span.alignment;
       } else if (apiKey) {
         alignment = await speak(line, audioPath);

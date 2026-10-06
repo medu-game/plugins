@@ -61,14 +61,17 @@ const STEP_SEC = 0.5;
 // model gives a hit with a tail and nothing else. Longer requests do have
 // internal shape, so the fix is not a better prompt. Generate long, find the
 // peak, and cut the window that leads into it.
-const PROMPT = [
-  'Calm modern cue for a software logo animation, understated and professional.',
-  'Soft warm synth with a light plucked note, gently rising and then arriving on a',
-  'soft resolving chord about a third of the way in, as if something clicks into place.',
-  'After that arrival it settles into a quiet sustained ambient pad that simply keeps',
-  'holding, unchanging and much softer, for the rest of the piece.',
-  'Optimistic, nothing triumphant.',
-  'Instrumental only, no vocals, no drums, no riser, no cinematic impact hit.',
+// Melissa, 2026-09-13: the earlier "understated, nothing triumphant" cue sounded
+// mysterious in the finished video rather than helpful. FK_MUSIC_PROMPT tries an
+// alternative without editing this file; what ends up in assets belongs here.
+const PROMPT = process.env.FK_MUSIC_PROMPT || [
+  'Bright friendly cue for a software logo animation.',
+  'Warm major key marimba and soft piano with a light airy pad underneath,',
+  'cheerful and welcoming, gently rising to a satisfying resolve about a third of',
+  'the way in, then settling into a soft sustained chord that keeps holding much',
+  'quieter for the rest of the piece.',
+  'Upbeat and approachable, nothing mysterious, nothing dark, nothing cinematic.',
+  'Instrumental only, no vocals, no drums, no riser, no impact hit.',
 ].join(' ');
 
 function parseArgs(argv) {

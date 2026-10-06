@@ -71,9 +71,9 @@ export const beats = [
   {
     id: 'intro',
     narration:
-      'Op je dashboard zie je in een oogopslag hoe het werk ervoor staat. Je kunt meerdere dashboards naast elkaar hebben, en zelf bepalen wat erop staat.',
+      'Op je dashboard zie je in een oogopslag hoe het werk ervoor staat. Je kunt meerdere dashboards naast elkaar hebben en zelf bepalen wat erop staat.',
     speech:
-      'Op je dashboard zie je in één oogopslag hoe het werk ervoor staat. Je kunt meerdere dashboards naast elkaar hebben, en zélf bepalen wat erop staat.',
+      'Op je dashboard zie je in één oogopslag hoe het werk ervoor staat. Je kunt meerdere dashboards naast elkaar hebben en zélf bepalen wat erop staat.',
   },
   {
     id: 'kaart-start',
@@ -86,7 +86,7 @@ export const beats = [
   {
     id: 'gedeeld',
     narration:
-      'Dit tabblad heeft een slotje. Dat betekent dat het dashboard gedeeld is: iedereen in je organisatie ziet dezelfde grafieken, en alleen een beheerder past ze aan.',
+      'Dit tabblad heeft een slotje. Dat betekent dat het dashboard gedeeld is: iedereen in je organisatie ziet dezelfde grafieken en alleen een beheerder past ze aan.',
     focus: GEDEELD_SLOT,
     minSec: 10.0,
   },
@@ -159,7 +159,7 @@ export const beats = [
   },
   {
     id: 'details',
-    narration: 'Daaronder geef je de grafiek een naam, en bepaal je waarop hij groepeert.',
+    narration: 'Daaronder geef je de grafiek een naam en bepaal je waarop hij groepeert.',
     action: async ({ page, run }) => {
       await run.fill(WIDGET_NAAM_VELD, WIDGET_NAAM, 'Naam van de grafiek');
       await page.waitForTimeout(1200);
@@ -182,7 +182,7 @@ export const beats = [
   {
     id: 'klaar',
     narration:
-      'De grafiek staat nu op je eigen dashboard. Je kunt er zoveel toevoegen als je wilt, en ze slepen in de volgorde die jou past.',
+      'De grafiek staat nu op je eigen dashboard. Je kunt er zoveel toevoegen als je wilt en ze slepen in de volgorde die jou past.',
     focus: NIEUWE_WIDGET,
     minSec: 10.0,
   },

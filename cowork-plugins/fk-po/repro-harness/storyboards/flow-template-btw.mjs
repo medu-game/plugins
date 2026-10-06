@@ -208,9 +208,9 @@ export const beats = [
   {
     id: 'herhalingen',
     narration:
-      'Kies daarna in welke ritmes dit werk terugkomt. De btw aangifte doe je per kwartaal, en voor sommige klanten maandelijks.',
+      'Kies daarna in welke ritmes dit werk terugkomt. De btw aangifte doe je per kwartaal en voor sommige klanten maandelijks.',
     speech:
-      'Kies daarna in welke ritmes dit werk terugkomt. De btw aangifte doe je per kwartáál, en voor sommige klanten maandelijks.',
+      'Kies daarna in welke ritmes dit werk terugkomt. De btw aangifte doe je per kwartáál en voor sommige klanten maandelijks.',
     // Open the list, let it be read, tick both, then close it again: left open
     // it covers the fields the next beat works in.
     action: async ({ page, run }) => {
@@ -264,9 +264,9 @@ export const beats = [
   {
     id: 'stappen-uitleg',
     narration:
-      'Taken in dezelfde stap lopen naast elkaar, daar kan iedereen tegelijk aan beginnen. Een volgende stap start pas als de vorige klaar is. Met Parallelle taak in deze stap zet je er dus werk bij dat tegelijk mag, en met Volgende stap toevoegen werk dat moet wachten.',
+      'Taken in dezelfde stap lopen naast elkaar, daar kan iedereen tegelijk aan beginnen. Een volgende stap start pas als de vorige klaar is. Met Parallelle taak in deze stap zet je er dus werk bij dat tegelijk mag en met Volgende stap toevoegen werk dat moet wachten.',
     speech:
-      'Taken in dezélfde stap lopen naast elkaar, daar kan iedereen tegelijk aan beginnen. Een volgende stap start pas als de vorige klaar is. Met Parallelle taak in deze stap zet je er dus werk bij dat tegelijk mag, en met Volgende stap toevoegen werk dat moet wachten.',
+      'Taken in dezélfde stap lopen naast elkaar, daar kan iedereen tegelijk aan beginnen. Een volgende stap start pas als de vorige klaar is. Met Parallelle taak in deze stap zet je er dus werk bij dat tegelijk mag en met Volgende stap toevoegen werk dat moet wachten.',
     // Scrolling is the action here: the panel sits under the task list, and the
     // beat is about what it shows rather than about changing anything.
     action: async ({ page }) => {

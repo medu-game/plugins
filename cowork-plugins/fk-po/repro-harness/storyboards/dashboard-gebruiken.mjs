@@ -7,7 +7,7 @@
 export const meta = {
   slug: 'dashboard-gebruiken',
   title: 'Je dashboard gebruiken',
-  subtitle: 'Filter op een collega, en klik door van een grafiek naar de flows en taken erachter.',
+  subtitle: 'Filter op een collega en klik door van een grafiek naar de flows en taken erachter.',
   account: 'help',
 };
 
@@ -57,9 +57,9 @@ export const beats = [
   {
     id: 'intro',
     narration:
-      'Je dashboard is meer dan een plaatje. Je kunt het toespitsen op een collega, en vanuit elke grafiek doorklikken naar het werk dat erachter zit.',
+      'Je dashboard is meer dan een plaatje. Je kunt het toespitsen op een collega en vanuit elke grafiek doorklikken naar het werk dat erachter zit.',
     speech:
-      'Je dashboard is méér dan een plaatje. Je kunt het toespitsen op een collega, en vanuit elke grafiek doorklikken naar het werk dat erachter zit.',
+      'Je dashboard is méér dan een plaatje. Je kunt het toespitsen op een collega en vanuit elke grafiek doorklikken naar het werk dat erachter zit.',
   },
   {
     id: 'kaart-filter',
@@ -123,7 +123,7 @@ export const beats = [
   {
     id: 'flow',
     narration:
-      'Klik op een flow om te zien hoe het ervoor staat. Je ziet de voortgang, en per taak wie hem heeft en wanneer hij af moet.',
+      'Klik op een flow om te zien hoe het ervoor staat. Je ziet de voortgang en per taak wie hem heeft en wanneer hij af moet.',
     action: async ({ page, run }) => {
       await run.click(FLOW_RIJ, KLANT);
       await page.locator(TAAK_KNOP).first().waitFor({ state: 'visible', timeout: 20_000 });
@@ -136,7 +136,7 @@ export const beats = [
   {
     id: 'taak',
     narration:
-      'En vanuit die lijst open je een taak. Onder Updates staan de reacties op de taak, en laat je er zelf een achter. Zo sta je in een paar klikken bij het werk zelf, zonder je dashboard kwijt te raken.',
+      'En vanuit die lijst open je een taak. Onder Updates staan de reacties op de taak en laat je er zelf een achter. Zo sta je in een paar klikken bij het werk zelf, zonder je dashboard kwijt te raken.',
     action: async ({ page, run }) => {
       await run.click(TAAK_KNOP, `Taak ${TAAK} openen`);
       await page.locator(UPDATES_SECTIE).first().waitFor({ state: 'visible', timeout: 15_000 });

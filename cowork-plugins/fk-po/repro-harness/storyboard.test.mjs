@@ -45,7 +45,8 @@ test('the first beat starts at zero and the login is reported as trim', () => {
   assert.equal(props.captureStartSec, 2.475);
   assert.equal(props.beats[0].startSec, 0);
   assert.equal(props.beats[1].startSec, 11.027 - 2.475);
-  assert.equal(props.captureDurationSec, 20 - 2.475);
+  // Not 20 - 2.475: the edit ends with the last beat, not the recording tail.
+  assert.equal(props.captureDurationSec, 14.557 - 2.475 + 5.4);
 });
 
 test('setup clicks before the first beat are dropped, later ones rebased', () => {
@@ -246,4 +247,9 @@ test('a card whose action throws fails the probe instead of passing silently', a
   assert.equal(report.ok, false);
   assert.equal(report.failures[0].id, 'kaart');
   assert.match(report.failures[0].reason, /Volgende not found/);
+});
+
+test('a comma before "en" is rejected in Dutch copy', () => {
+  assert.match(errorsFor([screen({ narration: 'Kies een collega, en klik door.' })]), /comma before "en"/);
+  assert.doesNotMatch(errorsFor([screen({ narration: 'Kies een collega en klik door.' })]), /comma before "en"/);
 });

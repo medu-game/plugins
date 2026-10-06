@@ -179,7 +179,7 @@ export const beats = [
   {
     id: 'periode',
     narration:
-      'Zet daarna de periode: je eerste vrije dag, en de dag waarop je weer terug bent.',
+      'Zet daarna de periode: je eerste vrije dag en de dag waarop je weer terug bent.',
     action: async ({ page, run }) => {
       const kiesDag = async (veld, isoDate, tekst) => {
         await run.click(veld, tekst === START_LABEL ? 'Startdatum' : 'Einddatum');

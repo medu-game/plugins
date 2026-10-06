@@ -54,6 +54,15 @@ under `~/.claude/plugins/`, STOP: "De video-harness kan niet vanuit de plugin
 draaien. Daarvoor moet ai-harness als losse map op je Mac staan, zie
 melissa-setup.md, Deel 4 stap 3."
 
+**First, bring the harness up to date, without asking her.** Run
+`git -C <harness root>/../../.. pull --ff-only` (the ai-harness checkout the
+root sits in). It is the same pull her 08:00 job does, so it needs no OK, and it
+means a fix pushed today is in the video she makes today. Say in one line what
+changed ("de video-harness is bijgewerkt") or that it was already current. If
+the pull refuses because of local changes, that is check 6 below. If it fails on
+the network or SSH, carry on with the harness she has and tell her so; do not
+block the video on it.
+
 Then check, in order. STOP with the matching Dutch fix-it message if a check
 fails; never work around a failed check.
 
@@ -62,7 +71,7 @@ fails; never work around a failed check.
 3. **App credentials**: `.fk-po/app.env` holds the keys for the account the storyboard names in `meta.account`. Help videos record as `help`: `FK_HELP_EMAIL`, `FK_HELP_PASSWORD`, and `FK_HELP_BASE_URL` when that account is not on the same host as the bug-video one. There is no fallback to `FK_ACC_*` on purpose. Never print their values.
 4. **Account display names**: the assignee field and the colleague picker are matched by the names the account actually shows. `FK_HELP_OWNER_NAME` (the account's own display name) and `FK_HELP_COLLEAGUE_NAME` (a colleague in the same company) must be set for anything but the dev-stack account, and `FK_HELP_COMPANY_NAME` too when the account belongs to more than one company, which every seeded preview account does. Without them a run waits 30 seconds on a name that is not on screen and then fails, which reads as a broken selector rather than as missing config. If you do not know them, ask her rather than guessing.
 5. **Voice key**: `.fk-po/eleven.env` exists and holds `ELEVENLABS_API_KEY`. Without it `narrate.mjs` produces silent beats and the video has no voice and no subtitle timings, which is not a help video. If it is missing: "Voor de stem is een ElevenLabs-sleutel nodig in ~/FlowKeeper/.fk-po/eleven.env. Vraag die aan Tim." Never print the key.
-6. **Harness is current**: `npm run make` starts with "WARNING: the harness has local changes" when a tracked harness file was edited on her Mac. Her daily `git pull` then refuses silently and she keeps recording with an old harness. Stop and tell her which files; for `remotion/studio-props.json` and `remotion/tweaks.ts` offer the one-off fix in melissa-setup.md ("Wat doen bij foutmeldingen"), for anything else ask Tim first. Never edit a harness file on her Mac to tune a video: house style goes into the repo.
+6. **Harness is current**: `npm run make` warns "the harness is N commit(s) behind Bitbucket" when the pull above was skipped or failed; pull and run again. It starts with "WARNING: the harness has local changes" when a tracked harness file was edited on her Mac. Her daily `git pull` then refuses silently and she keeps recording with an old harness. Stop and tell her which files; for `remotion/studio-props.json` and `remotion/tweaks.ts` offer the one-off fix in melissa-setup.md ("Wat doen bij foutmeldingen"), for anything else ask Tim first. Never edit a harness file on her Mac to tune a video: house style goes into the repo.
 7. **Recording account language**: the account must be Dutch, or the picture is English while the voice is not. A seeded preview account already is.
 
 ## Phase 1: The subject
