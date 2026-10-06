@@ -48,6 +48,10 @@ which can still be run on their own:
 | record | `FK_STORYBOARD=storyboards/<x>.mjs npm run record -- --work <dir>` | dev stack + browser | the FLOW or TIMING changed |
 | render | `npm run render -- --work <dir> --title "..."` | a few minutes | any VISUAL change |
 
+Reset after a probe that invited users: `npm run reset-probe-users -- --match proef- --company "<name>"`
+lists the open users whose address contains the marker; `--apply` archives them, skipping
+already-archived ones and waiting out a 429.
+
 ### Tweaking the look
 
 Every visual knob lives in `remotion/tweaks.ts`. Nothing in that file touches

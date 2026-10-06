@@ -173,7 +173,11 @@ Then, in order:
    `.fk-po/work/<slug>/probe-N/probe/`. Exit 0 means every selector resolved;
    exit 3 means at least one did not, and `probe/report.json` names each one.
    A probe runs every action, so a storyboard that submits something (a leave
-   request) leaves that record behind: reset the account before recording. On a failure, re-resolve from the code and
+   request, an invited user) leaves that record behind: reset the account before recording. For invited users,
+   give every address a storyboard creates the marker `proef-` (`proef-<naam>@example.com`), then run
+   `npm run reset-probe-users -- --match proef- --company "<FK_HELP_COMPANY_NAME>"` to list them and add `--apply`
+   to archive them. Never write your own cleanup loop: archiving allows 20 calls a minute, and one that also
+   re-archived old addresses stopped on "Too Many Attempts" and broke a recording (2026-10-06). On a failure, re-resolve from the code and
    probe once more. If it fails again, ask her for a screenshot of that screen
    rather than guessing a third time.
 3. **Look at every probe screenshot yourself** before she does: is the data fit

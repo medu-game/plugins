@@ -15,7 +15,8 @@
     "studio": "./studio.sh",
     "probe": "node record-repro.mjs probe-storyboard.mjs",
     "make": "node make-help.mjs",
-    "frames": "node frames.mjs"
+    "frames": "node frames.mjs",
+    "reset-probe-users": "node reset-probe-users.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
